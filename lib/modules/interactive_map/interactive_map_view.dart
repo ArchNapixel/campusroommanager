@@ -68,9 +68,9 @@ class _InteractiveMapViewState extends State<InteractiveMapView> {
           child: Container(
             color: AppColors.primaryBackground,
             child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
+              scrollDirection: Axis.vertical,
               child: SingleChildScrollView(
-                scrollDirection: Axis.vertical,
+                scrollDirection: Axis.horizontal,
                 child: Transform.translate(
                   offset: _panOffset,
                   child: Transform.scale(

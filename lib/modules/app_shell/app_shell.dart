@@ -40,7 +40,7 @@ class _AppShellState extends State<AppShell> {
   void _initializeNavigation() {
     _navigationItems = _buildNavigationItems();
     _screens = {
-      0: const RoomListScreen(),
+      0: const DashboardScreen(),
       1: _buildBookingsScreen(),
       2: _buildSchedulesScreen(),
       if (widget.userRole == UserRole.admin) 3: const UserListScreen(),

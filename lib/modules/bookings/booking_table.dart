@@ -170,8 +170,11 @@ class _BookingTableState extends State<BookingTable> {
                         ],
                       ),
                     ),
-                    StatusIndicator(
-                      status: _bookingStatusToOccupancy(booking.status),
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: StatusIndicator(
+                        status: _bookingStatusToOccupancy(booking.status),
+                      ),
                     ),
                   ],
                 ),

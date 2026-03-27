@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../core/builders/login_screen_builder.dart';
-import '../../core/models/user_model.dart';
-import '../../core/theme/app_theme.dart';
-import 'role_selector_widget.dart';
+import '../core/builders/login_screen_builder.dart';
+import '../core/models/user_model.dart';
+import '../core/theme/app_theme.dart';
+import '../modules/login/role_selector_widget.dart';
 
 /// Main login screen using Builder pattern
 class LoginScreen extends StatefulWidget {
@@ -162,19 +162,23 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     if (_spec.showRememberMe)
-                      Row(
-                        children: [
-                          Checkbox(
-                            value: false,
-                            onChanged: (_) {},
-                          ),
-                          Text('Remember me'),
-                        ],
+                      Flexible(
+                        child: Row(
+                          children: [
+                            Checkbox(
+                              value: false,
+                              onChanged: (_) {},
+                            ),
+                            Text('Remember me'),
+                          ],
+                        ),
                       ),
                     if (_spec.showForgotPassword)
-                      TextButton(
-                        onPressed: () {},
-                        child: Text('Forgot Password?'),
+                      Flexible(
+                        child: TextButton(
+                          onPressed: () {},
+                          child: Text('Forgot Password?'),
+                        ),
                       ),
                   ],
                 ),

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../core/models/user_model.dart';
-import '../../core/theme/app_theme.dart';
-import '../../shared/widgets/custom_app_bar.dart';
-import '../../shared/widgets/loading_widget.dart';
-import 'users_provider.dart';
+import '../core/models/user_model.dart';
+import '../core/theme/app_theme.dart';
+import '../shared/widgets/custom_app_bar.dart';
+import '../shared/widgets/loading_widget.dart';
+import '../modules/users/users_provider.dart';
 
 /// User list screen with role badges
 class UserListScreen extends StatefulWidget {

@@ -64,21 +64,24 @@ class EventRenderer extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      booking.purpose,
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      '${timeFormat.format(booking.startTime)} - ${timeFormat.format(booking.endTime)}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.mutedText,
-                          ),
-                    ),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        booking.purpose,
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        '${timeFormat.format(booking.startTime)} - ${timeFormat.format(booking.endTime)}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.mutedText,
+                            ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
