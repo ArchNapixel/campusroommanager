@@ -8,11 +8,15 @@ import '../../shared/widgets/status_indicator.dart';
 class RoomCard extends StatelessWidget {
   final RoomCardSpecification spec;
   final VoidCallback? onTap;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   const RoomCard({
     Key? key,
     required this.spec,
     this.onTap,
+    this.onEdit,
+    this.onDelete,
   }) : super(key: key);
 
   String get _roomTypeLabel {
@@ -68,6 +72,33 @@ class RoomCard extends StatelessWidget {
                           ),
                         ],
                       ),
+                    ),
+                    PopupMenuButton(
+                      icon: Icon(Icons.more_vert),
+                      itemBuilder: (context) => [
+                        if (onEdit != null)
+                          PopupMenuItem(
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit, size: 18),
+                                SizedBox(width: 8),
+                                Text('Edit'),
+                              ],
+                            ),
+                            onTap: onEdit,
+                          ),
+                        if (onDelete != null)
+                          PopupMenuItem(
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, size: 18, color: AppColors.error),
+                                SizedBox(width: 8),
+                                Text('Delete', style: TextStyle(color: AppColors.error)),
+                              ],
+                            ),
+                            onTap: onDelete,
+                          ),
+                      ],
                     ),
                     if (spec.showStatusIndicator)
                       StatusIndicator(

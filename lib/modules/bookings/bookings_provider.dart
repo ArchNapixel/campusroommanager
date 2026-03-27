@@ -10,44 +10,18 @@ class BookingsProvider with ChangeNotifier {
   List<Booking> get bookings => _bookings;
   bool get isLoading => _isLoading;
 
-  /// Load mock bookings
+  /// Load bookings from database
   Future<void> loadBookings() async {
     _isLoading = true;
     notifyListeners();
 
-    await Future.delayed(Duration(milliseconds: 500));
-
-    final now = DateTime.now();
-
-    _bookings = [
-      BookingFactory.createStandardBooking(
-        id: 'booking1',
-        roomId: 'room1',
-        userId: 'user1',
-        startTime: now.add(Duration(hours: 2)),
-        endTime: now.add(Duration(hours: 4)),
-        purpose: 'Physics Lab Session',
-        expectedOccupants: 15,
-      ),
-      BookingFactory.createConfirmedBooking(
-        id: 'booking2',
-        roomId: 'room3',
-        userId: 'user2',
-        startTime: now.add(Duration(hours: 1)),
-        endTime: now.add(Duration(hours: 3)),
-        purpose: 'Recording Session',
-        expectedOccupants: 2,
-      ),
-      BookingFactory.createInProgressBooking(
-        id: 'booking3',
-        roomId: 'room4',
-        userId: 'user3',
-        startTime: now.subtract(Duration(minutes: 30)),
-        endTime: now.add(Duration(hours: 1, minutes: 30)),
-        purpose: 'Lecture',
-        expectedOccupants: 50,
-      ),
-    ];
+    try {
+      // TODO: Fetch bookings from database/API
+      _bookings = [];
+    } catch (e) {
+      print('Error loading bookings: $e');
+      _bookings = [];
+    }
 
     _isLoading = false;
     notifyListeners();
@@ -109,5 +83,10 @@ class BookingsProvider with ChangeNotifier {
         booking.roomId == roomId &&
         booking.status != BookingStatus.cancelled &&
         booking.overlapsWithTime(startTime, endTime));
+  }
+
+  /// Check if room is available for time slot
+  bool isRoomAvailable(String roomId, DateTime startTime, DateTime endTime) {
+    return !hasConflict(roomId, startTime, endTime);
   }
 }

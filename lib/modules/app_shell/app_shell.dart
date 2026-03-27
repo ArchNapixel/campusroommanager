@@ -6,7 +6,6 @@ import '../bookings/bookings_barrel.dart';
 import '../rooms/rooms_barrel.dart';
 import '../schedules/schedules_barrel.dart';
 import '../users/users_barrel.dart';
-import '../interactive_map/interactive_map_barrel.dart';
 import 'navigation_drawer.dart';
 
 /// Main app shell with navigation
@@ -44,8 +43,6 @@ class _AppShellState extends State<AppShell> {
       1: _buildBookingsScreen(),
       2: _buildSchedulesScreen(),
       if (widget.userRole == UserRole.admin) 3: const UserListScreen(),
-      if (widget.userRole == UserRole.admin)
-        4: _buildInteractiveMapScreen(),
     };
   }
 
@@ -69,18 +66,13 @@ class _AppShellState extends State<AppShell> {
     ];
 
     if (widget.userRole == UserRole.admin) {
-      items.addAll([
+      items.add(
         NavigationItem(
           icon: Icons.people,
           label: 'Users',
           isActive: _selectedIndex == 3,
         ),
-        NavigationItem(
-          icon: Icons.map,
-          label: 'Map',
-          isActive: _selectedIndex == 4,
-        ),
-      ]);
+      );
     }
 
     return items;
@@ -151,40 +143,6 @@ class _AppShellState extends State<AppShell> {
       'spec': spec,
       'schedules': schedulesProvider.schedules,
       'bookings': schedulesProvider.bookings,
-    };
-  }
-
-  Widget _buildInteractiveMapScreen() {
-    return FutureBuilder(
-      future: _loadMapData(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasData) {
-          final data = snapshot.data as Map;
-          final spec = data['spec'];
-          final rooms = data['rooms'];
-          return InteractiveMapView(
-            spec: spec,
-            rooms: rooms,
-          );
-        }
-        return Center(
-            child: Text('Error loading map',
-            style: TextStyle(color: AppColors.error)));
-      },
-    );
-  }
-
-  Future<Map> _loadMapData() async {
-    final roomsProvider = RoomsProvider();
-    await roomsProvider.loadRooms();
-    final mapProvider = InteractiveMapProvider();
-    await mapProvider.initializeMap(roomsProvider.rooms);
-    return {
-      'spec': mapProvider.spec,
-      'rooms': roomsProvider.rooms,
     };
   }
 

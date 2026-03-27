@@ -10,6 +10,7 @@ import '../shared/widgets/loading_widget.dart';
 import '../modules/rooms/room_card.dart';
 import '../modules/rooms/rooms_provider.dart';
 import '../modules/login/login_provider.dart';
+import 'room_booking_screen.dart';
 
 /// Dashboard screen showing all available rooms with admin CRUD capabilities
 class DashboardScreen extends StatefulWidget {
@@ -58,46 +59,143 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
-  void _showCreateRoomDialog() {
+  void _showEditRoomDialog(Room room) {
+    final nameController = TextEditingController(text: room.name);
+    final buildingController = TextEditingController(text: room.building);
+    final roomNumberController = TextEditingController(text: room.roomNumber);
+    final capacityController = TextEditingController(text: room.capacity.toString());
+    RoomType selectedType = room.type;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Edit Room'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(
+                    labelText: 'Room Name',
+                    hintText: 'e.g., Lab 101',
+                  ),
+                ),
+                SizedBox(height: 16),
+                TextField(
+                  controller: buildingController,
+                  decoration: InputDecoration(
+                    labelText: 'Building',
+                    hintText: 'e.g., Science Building',
+                  ),
+                ),
+                SizedBox(height: 16),
+                TextField(
+                  controller: roomNumberController,
+                  decoration: InputDecoration(
+                    labelText: 'Room Number',
+                    hintText: 'e.g., 101',
+                  ),
+                ),
+                SizedBox(height: 16),
+                TextField(
+                  controller: capacityController,
+                  decoration: InputDecoration(
+                    labelText: 'Capacity',
+                    hintText: 'e.g., 30',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                SizedBox(height: 16),
+                DropdownButtonFormField<RoomType>(
+                  value: selectedType,
+                  decoration: InputDecoration(
+                    labelText: 'Room Type',
+                  ),
+                  items: [
+                    DropdownMenuItem(
+                      value: RoomType.classroom,
+                      child: Text('Classroom'),
+                    ),
+                    DropdownMenuItem(
+                      value: RoomType.lab,
+                      child: Text('Laboratory'),
+                    ),
+                    DropdownMenuItem(
+                      value: RoomType.audioVisual,
+                      child: Text('Audio/Visual'),
+                    ),
+                    DropdownMenuItem(
+                      value: RoomType.other,
+                      child: Text('Other'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        selectedType = value;
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                nameController.dispose();
+                buildingController.dispose();
+                roomNumberController.dispose();
+                capacityController.dispose();
+                Navigator.pop(context);
+              },
+              child: Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (nameController.text.isNotEmpty &&
+                    buildingController.text.isNotEmpty &&
+                    roomNumberController.text.isNotEmpty &&
+                    capacityController.text.isNotEmpty) {
+                  _roomsProvider.updateRoom(
+                    roomId: room.id,
+                    name: nameController.text,
+                    building: buildingController.text,
+                    roomNumber: roomNumberController.text,
+                    capacity: int.tryParse(capacityController.text) ?? 0,
+                    type: selectedType,
+                  );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Room updated successfully!')),
+                  );
+                  nameController.dispose();
+                  buildingController.dispose();
+                  roomNumberController.dispose();
+                  capacityController.dispose();
+                  Navigator.pop(context);
+                  _applyFilters();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Please fill all fields')),
+                  );
+                }
+              },
+              child: Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteRoomDialog(Room room) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Create New Room'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                decoration: InputDecoration(
-                  labelText: 'Room Name',
-                  hintText: 'e.g., Lab 101',
-                ),
-              ),
-              SizedBox(height: 16),
-              TextField(
-                decoration: InputDecoration(
-                  labelText: 'Building',
-                  hintText: 'e.g., Science Building',
-                ),
-              ),
-              SizedBox(height: 16),
-              TextField(
-                decoration: InputDecoration(
-                  labelText: 'Room Number',
-                  hintText: 'e.g., 101',
-                ),
-              ),
-              SizedBox(height: 16),
-              TextField(
-                decoration: InputDecoration(
-                  labelText: 'Capacity',
-                  hintText: 'e.g., 30',
-                ),
-                keyboardType: TextInputType.number,
-              ),
-            ],
-          ),
-        ),
+        title: Text('Delete Room'),
+        content: Text('Are you sure you want to delete ${room.name}? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -105,16 +203,149 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              // TODO: Implement room creation logic
+              _roomsProvider.deleteRoom(room.id);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Room created successfully!')),
+                SnackBar(content: Text('Room deleted successfully!')),
               );
               Navigator.pop(context);
-              _loadRooms();
+              _applyFilters();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+            ),
+            child: Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCreateRoomDialog() {
+    final nameController = TextEditingController();
+    final buildingController = TextEditingController();
+    final roomNumberController = TextEditingController();
+    final capacityController = TextEditingController();
+    RoomType selectedType = RoomType.classroom;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Create New Room'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(
+                    labelText: 'Room Name',
+                    hintText: 'e.g., Lab 101',
+                  ),
+                ),
+                SizedBox(height: 16),
+                TextField(
+                  controller: buildingController,
+                  decoration: InputDecoration(
+                    labelText: 'Building',
+                    hintText: 'e.g., Science Building',
+                  ),
+                ),
+                SizedBox(height: 16),
+                TextField(
+                  controller: roomNumberController,
+                  decoration: InputDecoration(
+                    labelText: 'Room Number',
+                    hintText: 'e.g., 101',
+                  ),
+                ),
+                SizedBox(height: 16),
+                TextField(
+                  controller: capacityController,
+                  decoration: InputDecoration(
+                    labelText: 'Capacity',
+                    hintText: 'e.g., 30',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                SizedBox(height: 16),
+                DropdownButtonFormField<RoomType>(
+                  value: selectedType,
+                  decoration: InputDecoration(
+                    labelText: 'Room Type',
+                  ),
+                  items: [
+                    DropdownMenuItem(
+                      value: RoomType.classroom,
+                      child: Text('Classroom'),
+                    ),
+                    DropdownMenuItem(
+                      value: RoomType.lab,
+                      child: Text('Laboratory'),
+                    ),
+                    DropdownMenuItem(
+                      value: RoomType.audioVisual,
+                      child: Text('Audio/Visual'),
+                    ),
+                    DropdownMenuItem(
+                      value: RoomType.other,
+                      child: Text('Other'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        selectedType = value;
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                nameController.dispose();
+                buildingController.dispose();
+                roomNumberController.dispose();
+                capacityController.dispose();
+                Navigator.pop(context);
+              },
+              child: Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (nameController.text.isNotEmpty &&
+                    buildingController.text.isNotEmpty &&
+                    roomNumberController.text.isNotEmpty &&
+                    capacityController.text.isNotEmpty) {
+                  _roomsProvider.createRoom(
+                    name: nameController.text,
+                    building: buildingController.text,
+                    roomNumber: roomNumberController.text,
+                    capacity: int.tryParse(capacityController.text) ?? 0,
+                    roomType: selectedType,
+                  );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Room created successfully!')),
+                  );
+                  nameController.dispose();
+                  buildingController.dispose();
+                  roomNumberController.dispose();
+                  capacityController.dispose();
+                  Navigator.pop(context);
+                  _applyFilters();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Please fill all fields')),
+                  );
+              }
             },
             child: Text('Create'),
           ),
         ],
+        ),
       ),
     );
   }
@@ -147,8 +378,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   icon: Icon(Icons.add),
                   label: Text('CREATE'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.textOnPrimary,
+                    backgroundColor: AppColors.buttonPrimary,
+                    foregroundColor: AppColors.headerText,
                   ),
                 ),
               ),
@@ -235,7 +466,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           maxCrossAxisExtent: 400,
                           mainAxisSpacing: 16,
                           crossAxisSpacing: 16,
-                          childAspectRatio: 1.1,
+                          childAspectRatio: 0.95,
                         ),
                         padding: EdgeInsets.all(16),
                         itemCount: _filteredRooms.length,
@@ -252,13 +483,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           return RoomCard(
                             spec: spec,
                             onTap: () {
-                              // TODO: Navigate to room details
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Booking ${room.name}...'),
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => RoomBookingScreen(
+                                    room: room,
+                                  ),
                                 ),
                               );
                             },
+                            onEdit: () => _showEditRoomDialog(room),
+                            onDelete: () => _showDeleteRoomDialog(room),
                           );
                         },
                       ),

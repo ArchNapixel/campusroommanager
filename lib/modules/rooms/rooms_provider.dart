@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math';
 import '../../core/factories/room_factory.dart';
 import '../../core/models/room_model.dart';
 
@@ -10,68 +11,18 @@ class RoomsProvider with ChangeNotifier {
   List<Room> get rooms => _rooms;
   bool get isLoading => _isLoading;
 
-  /// Load all rooms (mock data)
+  /// Load all rooms from database
   Future<void> loadRooms() async {
     _isLoading = true;
     notifyListeners();
 
-    // Simulate API call
-    await Future.delayed(Duration(milliseconds: 500));
-
-    _rooms = [
-      RoomFactory.createLab(
-        id: 'room1',
-        name: 'Physics Lab A',
-        capacity: 30,
-        building: 'Science Building',
-        floor: '2',
-        roomNumber: '201',
-        latitude: 40.1234,
-        longitude: -74.5678,
-      ),
-      RoomFactory.createLab(
-        id: 'room2',
-        name: 'Chemistry Lab B',
-        capacity: 25,
-        building: 'Science Building',
-        floor: '2',
-        roomNumber: '202',
-      ),
-      RoomFactory.createAudioVisualRoom(
-        id: 'room3',
-        name: 'AV Studio 1',
-        capacity: 50,
-        building: 'Engineering Building',
-        floor: '3',
-        roomNumber: '301',
-      ),
-      RoomFactory.createClassroom(
-        id: 'room4',
-        name: 'Classroom 101',
-        capacity: 60,
-        building: 'Main Campus',
-        floor: '1',
-        roomNumber: '101',
-      ),
-      RoomFactory.createLab(
-        id: 'room5',
-        name: 'Computer Lab',
-        capacity: 40,
-        building: 'Tech Center',
-        floor: '1',
-        roomNumber: '105',
-      ),
-    ];
-
-    // Add mock usage frequency to amenities
-    _rooms = _rooms
-        .map((room) => room.copyWith(
-              amenities: {
-                ...room.amenities,
-                'usageFrequency': 0.3 + (DateTime.now().millisecond % 7) / 10,
-              },
-            ))
-        .toList();
+    try {
+      // TODO: Fetch rooms from database/API
+      _rooms = [];
+    } catch (e) {
+      print('Error loading rooms: $e');
+      _rooms = [];
+    }
 
     _isLoading = false;
     notifyListeners();
@@ -114,6 +65,97 @@ class RoomsProvider with ChangeNotifier {
     if (index != -1) {
       _rooms[index] =
           _rooms[index].copyWith(occupancyStatus: status, lastUpdated: DateTime.now());
+      notifyListeners();
+    }
+  }
+
+  /// Create a new room
+  void createRoom({
+    required String name,
+    required String building,
+    required String roomNumber,
+    required int capacity,
+    String? floor,
+    RoomType roomType = RoomType.classroom,
+  }) {
+    // Generate amenities based on room type
+    final random = Random();
+    Map<String, dynamic> amenities = {};
+
+    switch (roomType) {
+      case RoomType.lab:
+        amenities = {
+          'hasEquipment': random.nextBool(),
+          'hasProjector': random.nextBool(),
+          'hasWhiteboard': true,
+          'hasComputers': random.nextBool(),
+        };
+        break;
+      case RoomType.audioVisual:
+        amenities = {
+          'hasProjector': true,
+          'hasAudioSystem': random.nextBool(),
+          'hasSoundboard': random.nextBool(),
+          'hasScreenShare': true,
+          'hasRecording': random.nextBool(),
+        };
+        break;
+      case RoomType.classroom:
+        amenities = {
+          'hasProjector': true,
+          'hasWhiteboard': random.nextBool(),
+          'hasSeating': true,
+          'hasClimateControl': random.nextBool(),
+        };
+        break;
+      case RoomType.other:
+        amenities = {};
+        break;
+    }
+
+    final newRoom = Room(
+      id: 'room_${DateTime.now().millisecondsSinceEpoch}',
+      name: name,
+      capacity: capacity,
+      type: roomType,
+      building: building,
+      floor: floor ?? '1',
+      roomNumber: roomNumber,
+      occupancyStatus: OccupancyStatus.available,
+      lastUpdated: DateTime.now(),
+      amenities: amenities,
+    );
+    _rooms.add(newRoom);
+    notifyListeners();
+  }
+
+  /// Delete a room by ID
+  void deleteRoom(String roomId) {
+    _rooms.removeWhere((room) => room.id == roomId);
+    notifyListeners();
+  }
+
+  /// Update a room
+  void updateRoom({
+    required String roomId,
+    String? name,
+    String? building,
+    String? roomNumber,
+    int? capacity,
+    String? floor,
+    RoomType? type,
+  }) {
+    final index = _rooms.indexWhere((room) => room.id == roomId);
+    if (index != -1) {
+      _rooms[index] = _rooms[index].copyWith(
+        name: name,
+        building: building,
+        roomNumber: roomNumber,
+        capacity: capacity,
+        floor: floor,
+        type: type,
+        lastUpdated: DateTime.now(),
+      );
       notifyListeners();
     }
   }

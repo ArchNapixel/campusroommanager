@@ -10,42 +10,18 @@ class UsersProvider with ChangeNotifier {
   List<User> get users => _users;
   bool get isLoading => _isLoading;
 
-  /// Load all users (mock data)
+  /// Load all users from database
   Future<void> loadUsers() async {
     _isLoading = true;
     notifyListeners();
 
-    await Future.delayed(Duration(milliseconds: 500));
-
-    _users = [
-      UserFactory.createStudent(
-        name: 'Alice Johnson',
-        email: 'alice.johnson@university.edu',
-        studentId: 'STU001',
-        department: 'Computer Science',
-      ),
-      UserFactory.createStudent(
-        name: 'Bob Smith',
-        email: 'bob.smith@university.edu',
-        studentId: 'STU002',
-        department: 'Physics',
-      ),
-      UserFactory.createTeacher(
-        name: 'Prof. Diana Chen',
-        email: 'diana.chen@university.edu',
-        department: 'Computer Science',
-      ),
-      UserFactory.createTeacher(
-        name: 'Prof. Edward Martinez',
-        email: 'edward.martinez@university.edu',
-        department: 'Engineering',
-      ),
-      UserFactory.createAdmin(
-        name: 'Admin User',
-        email: 'admin@university.edu',
-        department: 'Administration',
-      ),
-    ];
+    try {
+      // TODO: Fetch users from database/API
+      _users = [];
+    } catch (e) {
+      print('Error loading users: $e');
+      _users = [];
+    }
 
     _isLoading = false;
     notifyListeners();
