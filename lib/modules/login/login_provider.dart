@@ -54,6 +54,7 @@ class LoginProvider with ChangeNotifier {
         email: adminRecord['email'] ?? 'admin@campus.local',
         name: adminRecord['full_name'] ?? adminRecord['username'],
         role: UserRole.admin,
+        profilePictureUrl: adminRecord['profile_picture_url'],
         createdAt: DateTime.parse(adminRecord['created_at']),
       );
       _isAuthenticated = true;
@@ -71,7 +72,7 @@ class LoginProvider with ChangeNotifier {
 
   /// Login with email and password
   Future<void> loginWithEmail(String email, String password, UserRole role) async {
-    print('📱 [LoginProvider] loginWithEmail started - Role: $role');
+    print('📱 [LoginProvider] loginWithEmail started for email: $email');
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -84,7 +85,7 @@ class LoginProvider with ChangeNotifier {
 
       print('📱 [LoginProvider] Got response, user: ${response.user?.id}');
       if (response.user != null) {
-        // Fetch user details from database
+        // Fetch user details from database to get role and name
         print('📱 [LoginProvider] Fetching user details from database');
         final userRecord = await SupabaseService.client
             .from('users')
@@ -92,24 +93,45 @@ class LoginProvider with ChangeNotifier {
             .eq('id', response.user!.id)
             .single();
 
-        print('📱 [LoginProvider] User record: $userRecord');
+        print('📱 [LoginProvider] User record fetched: role=${userRecord['role']}, name=${userRecord['full_name']}');
+        
+        // Get role from database (this is the user's actual role from signup)
         _currentUserRole = UserRole.values.firstWhere(
           (r) => r.toString().split('.').last == userRecord['role'],
-          orElse: () => role,
+          orElse: () => UserRole.student,
         );
+        
         _currentUser = User(
           id: response.user!.id,
           email: response.user!.email ?? '',
-          name: userRecord['username'] ?? 'User',
+          name: userRecord['full_name'] ?? 'User',
           role: _currentUserRole!,
+          profilePictureUrl: userRecord['profile_picture_url'],
           createdAt: DateTime.now(),
         );
         _isAuthenticated = true;
         _errorMessage = null;
-        print('✅ [LoginProvider] loginWithEmail success!');
+        print('✅ [LoginProvider] loginWithEmail success! Role: $_currentUserRole');
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      // Handle specific error types with helpful messages
+      String errorMsg = e.toString();
+      
+      if (errorMsg.contains('email_not_confirmed')) {
+        _errorMessage = 'Email not confirmed. Please check your email for a confirmation link. If you haven\'t received it, check your spam folder.';
+        print('⚠️  [LoginProvider] Email not confirmed error');
+      } else if (errorMsg.contains('Invalid login credentials') || 
+                 errorMsg.contains('invalid_grant')) {
+        _errorMessage = 'Invalid email or password. Please check and try again.';
+        print('⚠️  [LoginProvider] Invalid credentials error');
+      } else if (errorMsg.contains('Connection failed') || 
+                 errorMsg.contains('SocketException')) {
+        _errorMessage = 'Connection failed. Please check your internet connection.';
+        print('⚠️  [LoginProvider] Connection error');
+      } else {
+        _errorMessage = 'Login failed: $errorMsg';
+      }
+      
       _isAuthenticated = false;
       print('❌ [LoginProvider] loginWithEmail error: $e');
     } finally {
@@ -274,6 +296,7 @@ class LoginProvider with ChangeNotifier {
           email: currentUser.email ?? '',
           name: currentUser.userMetadata?['name'] ?? 'User',
           role: _currentUserRole!,
+          profilePictureUrl: currentUser.userMetadata?['avatar_url'],
           createdAt: DateTime.now(),
         );
         _isAuthenticated = true;
@@ -283,7 +306,28 @@ class LoginProvider with ChangeNotifier {
         throw Exception('Failed to get user after Google auth');
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      // Handle specific error types with helpful messages
+      String errorMsg = e.toString();
+      
+      if (errorMsg.contains('email_not_confirmed')) {
+        _errorMessage = 'Email not confirmed. Please check your email for a confirmation link.';
+        print('⚠️  [LoginProvider] Email not confirmed error on Google login');
+      } else if (errorMsg.contains('user_already_exists') || 
+                 errorMsg.contains('already exists')) {
+        _errorMessage = 'This Google account is already linked. Please login with your credentials.';
+        print('⚠️  [LoginProvider] User already exists error');
+      } else if (errorMsg.contains('Connection failed') || 
+                 errorMsg.contains('SocketException')) {
+        _errorMessage = 'Connection failed. Please check your internet connection.';
+        print('⚠️  [LoginProvider] Connection error on Google login');
+      } else if (errorMsg.contains('PlatformException') || 
+                 errorMsg.contains('sign_in_cancelled')) {
+        _errorMessage = 'Google sign-in was cancelled.';
+        print('⚠️  [LoginProvider] Google sign-in cancelled');
+      } else {
+        _errorMessage = 'Google login failed: $errorMsg';
+      }
+      
       _isAuthenticated = false;
       print('❌ [LoginProvider] Google login error: $e');
     } finally {

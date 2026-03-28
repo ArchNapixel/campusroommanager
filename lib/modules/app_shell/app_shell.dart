@@ -7,6 +7,7 @@ import '../rooms/rooms_barrel.dart';
 import '../schedules/schedules_barrel.dart';
 import '../users/users_barrel.dart';
 import 'navigation_drawer.dart';
+import 'settings_screen.dart';
 
 /// Main app shell with navigation
 class AppShell extends StatefulWidget {
@@ -43,6 +44,7 @@ class _AppShellState extends State<AppShell> {
       1: _buildBookingsScreen(),
       2: _buildSchedulesScreen(),
       if (widget.userRole == UserRole.admin) 3: const UserListScreen(),
+      4: const SettingsScreen(),
     };
   }
 
@@ -74,6 +76,14 @@ class _AppShellState extends State<AppShell> {
         ),
       );
     }
+
+    items.add(
+      NavigationItem(
+        icon: Icons.settings,
+        label: 'Settings',
+        isActive: _selectedIndex == 4,
+      ),
+    );
 
     return items;
   }

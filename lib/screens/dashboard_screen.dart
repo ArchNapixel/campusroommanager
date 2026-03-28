@@ -10,6 +10,7 @@ import '../shared/widgets/loading_widget.dart';
 import '../modules/rooms/room_card.dart';
 import '../modules/rooms/rooms_provider.dart';
 import '../modules/login/login_provider.dart';
+import '../modules/app_shell/settings_screen.dart';
 import 'room_booking_screen.dart';
 
 /// Dashboard screen showing all available rooms with admin CRUD capabilities
@@ -371,7 +372,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final loginProvider = context.watch<LoginProvider>();
-    final isAdmin = loginProvider.currentUserRole == UserRole.admin;
 
     return Scaffold(
       appBar: CustomAppBar(
@@ -381,7 +381,68 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: Icon(Icons.refresh),
             onPressed: _loadRooms,
           ),
-          if (isAdmin)
+          // Profile Settings Button
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Consumer<LoginProvider>(
+              builder: (context, loginProvider, _) {
+                final profileUrl =
+                    loginProvider.currentUser?.profilePictureUrl;
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SettingsScreen(),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    margin: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.buttonPrimary,
+                        width: 2,
+                      ),
+                    ),
+                    child: ClipOval(
+                      child: profileUrl != null && profileUrl.isNotEmpty
+                          ? Image.network(
+                              profileUrl,
+                              fit: BoxFit.cover,
+                              width: 36,
+                              height: 36,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  width: 36,
+                                  height: 36,
+                                  color: AppColors.deepNavy,
+                                  child: Icon(
+                                    Icons.person,
+                                    size: 18,
+                                    color: AppColors.bodyText,
+                                  ),
+                                );
+                              },
+                            )
+                          : Container(
+                              width: 36,
+                              height: 36,
+                              color: AppColors.deepNavy,
+                              child: Icon(
+                                Icons.person,
+                                size: 18,
+                                color: AppColors.bodyText,
+                              ),
+                            ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          if (loginProvider.currentUserRole == UserRole.admin)
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 8),
               child: Center(

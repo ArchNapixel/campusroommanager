@@ -7,6 +7,7 @@ class User {
   final UserRole role;
   final String? department;
   final String? studentId; // for students
+  final String? profilePictureUrl; // URL to profile picture in Supabase Storage
   final DateTime createdAt;
   final bool isActive;
 
@@ -17,6 +18,7 @@ class User {
     required this.role,
     this.department,
     this.studentId,
+    this.profilePictureUrl,
     required this.createdAt,
     this.isActive = true,
   });
@@ -28,6 +30,7 @@ class User {
     UserRole? role,
     String? department,
     String? studentId,
+    String? profilePictureUrl,
     DateTime? createdAt,
     bool? isActive,
   }) {
@@ -38,6 +41,7 @@ class User {
       role: role ?? this.role,
       department: department ?? this.department,
       studentId: studentId ?? this.studentId,
+      profilePictureUrl: profilePictureUrl ?? this.profilePictureUrl,
       createdAt: createdAt ?? this.createdAt,
       isActive: isActive ?? this.isActive,
     );

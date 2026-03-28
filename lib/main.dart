@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/supabase_service.dart';
+import 'core/models/user_model.dart';
 import 'modules/login/login_barrel.dart';
 import 'modules/login/dialogs/auth_flow_dialogs.dart';
 import 'modules/app_shell/app_shell_barrel.dart';
@@ -106,29 +107,65 @@ class _AppRootState extends State<AppRoot> {
               onBackPressed: () {
                 setState(() => _authFlowState = AuthFlowState.authChoice);
               },
-              onLoginPressed: (email, password) {
-                // Don't change state to roleSelection - keep showing loginForm
-                // Dialog will appear on top, and on error we'll already be on this form
-                AuthFlowDialogs.showLoginRoleSelection(
-                  context,
-                  loginProvider,
-                  email,
-                  password,
-                  setState,
-                  () => setState(() => _authFlowState = AuthFlowState.loginForm),
-                );
+              onLoginPressed: (email, password) async {
+                print('📱 [AppRoot] Login pressed - calling loginWithEmail directly');
+                // Login directly - role will be fetched from database
+                await loginProvider.loginWithEmail(email, password, UserRole.student);
+                
+                if (context.mounted) {
+                  if (loginProvider.isAuthenticated) {
+                    print('✅ [AppRoot] Login successful - Consumer will handle navigation');
+                    // The Consumer will catch the authenticated state and show AppShell
+                  } else if (loginProvider.errorMessage != null) {
+                    print('❌ [AppRoot] Login failed: ${loginProvider.errorMessage}');
+                    
+                    // Show error dialog with helpful message
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        icon: Icon(Icons.error_outline, size: 48, color: AppColors.error),
+                        title: const Text('Login Failed'),
+                        content: Text(loginProvider.errorMessage!),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                }
               },
               onGooglePressed: () async {
-                print('🎯 [AppRoot] Google login pressed, showing role selection');
-                await AuthFlowDialogs.showLoginRoleSelection(
-                  context,
-                  loginProvider,
-                  '', // Empty email - will be from Google
-                  '', // Empty password - will be from Google
-                  setState,
-                  () => setState(() => _authFlowState = AuthFlowState.loginForm),
-                  isGoogleLogin: true,
-                );
+                print('🎯 [AppRoot] Google login pressed - calling loginWithGoogle directly');
+                // Login directly with Google - role will be handled by Supabase OAuth
+                await loginProvider.loginWithGoogle(UserRole.student);
+                
+                if (context.mounted) {
+                  if (loginProvider.isAuthenticated) {
+                    print('✅ [AppRoot] Google login successful - Consumer will handle navigation');
+                    // The Consumer will catch the authenticated state and show AppShell
+                  } else if (loginProvider.errorMessage != null) {
+                    print('❌ [AppRoot] Google login failed: ${loginProvider.errorMessage}');
+                    
+                    // Show error dialog with helpful message
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        icon: Icon(Icons.error_outline, size: 48, color: AppColors.error),
+                        title: const Text('Google Login Failed'),
+                        content: Text(loginProvider.errorMessage!),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                }
               },
             );
 
