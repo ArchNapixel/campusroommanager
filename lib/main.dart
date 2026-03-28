@@ -5,6 +5,7 @@ import 'core/services/supabase_service.dart';
 import 'modules/login/login_barrel.dart';
 import 'modules/login/dialogs/auth_flow_dialogs.dart';
 import 'modules/app_shell/app_shell_barrel.dart';
+import 'screens/admin_login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -94,6 +95,10 @@ class _AppRootState extends State<AppRoot> {
                 print('🎯 [AppRoot] SignUp pressed, moving to signupForm');
                 setState(() => _authFlowState = AuthFlowState.signupForm);
               },
+              onAdminLoginPressed: () {
+                print('🎯 [AppRoot] Admin Login pressed, moving to adminLogin');
+                setState(() => _authFlowState = AuthFlowState.adminLogin);
+              },
             );
 
           case AuthFlowState.loginForm:
@@ -113,9 +118,16 @@ class _AppRootState extends State<AppRoot> {
                   () => setState(() => _authFlowState = AuthFlowState.loginForm),
                 );
               },
-              onGooglePressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Google login coming soon!')),
+              onGooglePressed: () async {
+                print('🎯 [AppRoot] Google login pressed, showing role selection');
+                await AuthFlowDialogs.showLoginRoleSelection(
+                  context,
+                  loginProvider,
+                  '', // Empty email - will be from Google
+                  '', // Empty password - will be from Google
+                  setState,
+                  () => setState(() => _authFlowState = AuthFlowState.loginForm),
+                  isGoogleLogin: true,
                 );
               },
             );
@@ -137,6 +149,32 @@ class _AppRootState extends State<AppRoot> {
                   setState,
                   () => setState(() => _authFlowState = AuthFlowState.signupForm),
                 );
+              },
+            );
+
+          case AuthFlowState.adminLogin:
+            return AdminLoginScreen(
+              onBackPressed: () {
+                setState(() => _authFlowState = AuthFlowState.authChoice);
+              },
+              onLoginPressed: (username, password) async {
+                print('📱 [AppRoot] Admin login pressed');
+                await loginProvider.adminLogin(username, password);
+                
+                if (context.mounted) {
+                  if (loginProvider.isAuthenticated) {
+                    print('✅ [AppRoot] Admin login successful - no state change needed');
+                    // The Consumer will catch the authenticated state and show AppShell
+                  } else if (loginProvider.errorMessage != null) {
+                    print('❌ [AppRoot] Admin login failed: ${loginProvider.errorMessage}');
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Login Failed: ${loginProvider.errorMessage}'),
+                        backgroundColor: AppColors.error,
+                      ),
+                    );
+                  }
+                }
               },
             );
 

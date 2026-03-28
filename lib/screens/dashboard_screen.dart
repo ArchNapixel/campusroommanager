@@ -154,30 +154,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 if (nameController.text.isNotEmpty &&
                     buildingController.text.isNotEmpty &&
                     roomNumberController.text.isNotEmpty &&
                     capacityController.text.isNotEmpty) {
-                  _roomsProvider.updateRoom(
+                  await _roomsProvider.updateRoom(
                     room.id,
                     {
-                      'name': nameController.text,
+                      'description': nameController.text,
                       'building': buildingController.text,
                       'room_number': roomNumberController.text,
                       'capacity': int.tryParse(capacityController.text) ?? 0,
-                      'type': selectedType.toString().split('.').last,
+                      'room_type': selectedType.toString().split('.').last,
                     },
                   );
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Room updated successfully!')),
-                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Room updated successfully!')),
+                    );
+                  }
                   nameController.dispose();
                   buildingController.dispose();
                   roomNumberController.dispose();
                   capacityController.dispose();
-                  Navigator.pop(context);
-                  _applyFilters();
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    _applyFilters();
+                  }
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Please fill all fields')),
@@ -317,29 +321,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 if (nameController.text.isNotEmpty &&
                     buildingController.text.isNotEmpty &&
                     roomNumberController.text.isNotEmpty &&
                     capacityController.text.isNotEmpty) {
-                  _roomsProvider.createRoom(
+                  await _roomsProvider.createRoom(
                     {
-                      'name': nameController.text,
+                      'description': nameController.text,
                       'building': buildingController.text,
                       'room_number': roomNumberController.text,
                       'capacity': int.tryParse(capacityController.text) ?? 0,
-                      'type': selectedType.toString().split('.').last,
+                      'room_type': selectedType.toString().split('.').last,
                     },
                   );
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Room created successfully!')),
-                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Room created successfully!')),
+                    );
+                  }
                   nameController.dispose();
                   buildingController.dispose();
                   roomNumberController.dispose();
                   capacityController.dispose();
-                  Navigator.pop(context);
-                  _applyFilters();
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    _applyFilters();
+                  }
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Please fill all fields')),

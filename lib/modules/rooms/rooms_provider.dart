@@ -35,8 +35,9 @@ class RoomsProvider with ChangeNotifier {
       switch (type.toLowerCase()) {
         case 'lab':
           return RoomType.lab;
-        case 'audio_visual':
+        case 'av_room':
         case 'audiovisual':
+        case 'audio_visual':
           return RoomType.audioVisual;
         case 'classroom':
           return RoomType.classroom;
@@ -45,28 +46,15 @@ class RoomsProvider with ChangeNotifier {
       }
     }
 
-    OccupancyStatus statusFromString(String status) {
-      switch (status.toLowerCase()) {
-        case 'occupied':
-          return OccupancyStatus.occupied;
-        case 'pending':
-          return OccupancyStatus.pending;
-        case 'maintenance':
-          return OccupancyStatus.maintenance;
-        default:
-          return OccupancyStatus.available;
-      }
-    }
-
     return Room(
       id: data['id'] ?? '',
-      name: data['name'] ?? '',
+      name: data['description'] ?? data['name'] ?? '',
       capacity: data['capacity'] ?? 0,
-      type: typeFromString(data['type'] ?? 'other'),
+      type: typeFromString(data['room_type'] ?? data['type'] ?? 'other'),
       building: data['building'] ?? '',
-      floor: data['floor'] ?? '1',
+      floor: '1', // Floor not in database, default to 1
       roomNumber: data['room_number'] ?? '',
-      occupancyStatus: statusFromString(data['status'] ?? 'available'),
+      occupancyStatus: OccupancyStatus.available, // Default to available
       lastUpdated: data['updated_at'] != null 
           ? DateTime.parse(data['updated_at'])
           : DateTime.now(),

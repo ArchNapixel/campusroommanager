@@ -5,11 +5,13 @@ import '../../core/theme/app_theme.dart';
 class AuthChoiceScreen extends StatelessWidget {
   final VoidCallback onLoginPressed;
   final VoidCallback onSignUpPressed;
+  final VoidCallback onAdminLoginPressed;
 
   const AuthChoiceScreen({
     Key? key,
     required this.onLoginPressed,
     required this.onSignUpPressed,
+    required this.onAdminLoginPressed,
   }) : super(key: key);
 
   @override
@@ -139,6 +141,44 @@ class AuthChoiceScreen extends StatelessWidget {
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.buttonPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 16),
+
+                    // Admin Login Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: OutlinedButton(
+                        onPressed: onAdminLoginPressed,
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(
+                            color: AppColors.warning,
+                            width: 2,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.admin_panel_settings,
+                              size: 20,
+                              color: AppColors.warning,
+                            ),
+                            SizedBox(width: 12),
+                            Text(
+                              'Admin Login',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.warning,
                               ),
                             ),
                           ],

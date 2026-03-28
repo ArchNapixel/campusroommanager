@@ -232,12 +232,12 @@ class _LoginFormScreenState extends State<LoginFormScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            Icons.mail_outline,
+                            Icons.g_mobiledata,
                             color: AppColors.headerText,
                           ),
                           SizedBox(width: 12),
                           Text(
-                            'Continue with Google',
+                            'Login with Google',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,

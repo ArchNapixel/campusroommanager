@@ -32,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
         .withSubtitle('Book labs and AV rooms instantly')
         .showStudentRole(true)
         .showTeacherRole(true)
-        .showAdminRole(false) // Hide admin in demo
+        .showAdminRole(false)
         .showForgotPassword(true)
         .showRememberMe(true)
         .build();

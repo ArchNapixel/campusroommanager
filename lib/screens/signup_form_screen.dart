@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import '../core/models/user_model.dart';
+import '../core/theme/app_theme.dart';
+import '../modules/login/login_provider.dart';
 
 /// Sign up form screen with username, email, and password
 class SignUpFormScreen extends StatefulWidget {
@@ -287,6 +290,77 @@ class _SignUpFormScreenState extends State<SignUpFormScreen> {
                               ),
                             ),
                     ),
+                  ),
+                  SizedBox(height: 16),
+
+                  // Google Sign Up Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: Consumer<LoginProvider>(
+                      builder: (context, loginProvider, _) {
+                        return OutlinedButton(
+                          onPressed: _isLoading ? null : () async {
+                            setState(() => _isLoading = true);
+                            await loginProvider.loginWithGoogle(UserRole.student);
+                            setState(() => _isLoading = false);
+                            
+                            if (context.mounted && loginProvider.isAuthenticated) {
+                              // Close and navigate (handled by Consumer in main.dart)
+                            } else if (context.mounted && loginProvider.errorMessage != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Google Sign-up Failed: ${loginProvider.errorMessage}'),
+                                  backgroundColor: AppColors.error,
+                                ),
+                              );
+                            }
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: AppColors.buttonPrimary,
+                              width: 2,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.g_mobiledata, size: 24, color: AppColors.buttonPrimary),
+                              SizedBox(width: 12),
+                              Text(
+                                'Sign Up with Google',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.buttonPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  SizedBox(height: 16),
+
+                  // Divider
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: AppColors.mutedText, thickness: 1)),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(
+                          'or',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.mutedText,
+                              ),
+                        ),
+                      ),
+                      Expanded(child: Divider(color: AppColors.mutedText, thickness: 1)),
+                    ],
                   ),
                   SizedBox(height: 16),
 
