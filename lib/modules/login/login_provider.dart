@@ -147,16 +147,35 @@ class LoginProvider with ChangeNotifier {
 
       print('📱 [LoginProvider] Got response, user: ${response.user?.id}');
       if (response.user != null) {
-        // Insert user into users table
+        // Insert user into users table with retry logic for timing issues
         print('📱 [LoginProvider] Inserting user into database');
-        await SupabaseService.client.from('users').insert({
-          'id': response.user!.id,
-          'email': email,
-          'username': username,
-          'full_name': username,
-          'role': role.toString().split('.').last, // 'student' or 'teacher'
-        });
-        print('✅ [LoginProvider] User inserted into database');
+        
+        int retries = 0;
+        const maxRetries = 3;
+        bool success = false;
+        
+        while (!success && retries < maxRetries) {
+          try {
+            await SupabaseService.client.from('users').insert({
+              'id': response.user!.id,
+              'email': email,
+              'username': username,
+              'full_name': username,
+              'role': role.toString().split('.').last, // 'student' or 'teacher'
+            });
+            success = true;
+            print('✅ [LoginProvider] User inserted into database on attempt ${retries + 1}');
+          } catch (e) {
+            retries++;
+            if (retries < maxRetries) {
+              // Wait before retrying (100ms * retry number)
+              await Future.delayed(Duration(milliseconds: 100 * retries));
+              print('🔄 [LoginProvider] Retrying user insert (attempt ${retries + 1}/$maxRetries)');
+            } else {
+              rethrow;
+            }
+          }
+        }
 
         _currentUserRole = role;
         _currentUser = User(
@@ -215,18 +234,37 @@ class LoginProvider with ChangeNotifier {
             orElse: () => role,
           );
         } catch (e) {
-          // User doesn't exist, create new user
+          // User doesn't exist, create new user with retry logic
           print('📱 [LoginProvider] Creating new user from Google sign-in');
           final email = currentUser.email ?? '';
           final username = currentUser.userMetadata?['name']?.toString().replaceAll(' ', '_') ?? 'google_user';
           
-          await SupabaseService.client.from('users').insert({
-            'id': currentUser.id,
-            'email': email,
-            'username': username,
-            'full_name': currentUser.userMetadata?['name'] ?? 'User',
-            'role': role.toString().split('.').last,
-          });
+          int retries = 0;
+          const maxRetries = 3;
+          bool success = false;
+          
+          while (!success && retries < maxRetries) {
+            try {
+              await SupabaseService.client.from('users').insert({
+                'id': currentUser.id,
+                'email': email,
+                'username': username,
+                'full_name': currentUser.userMetadata?['name'] ?? 'User',
+                'role': role.toString().split('.').last,
+              });
+              success = true;
+              print('✅ [LoginProvider] Google user inserted into database on attempt ${retries + 1}');
+            } catch (insertError) {
+              retries++;
+              if (retries < maxRetries) {
+                // Wait before retrying (100ms * retry number)
+                await Future.delayed(Duration(milliseconds: 100 * retries));
+                print('🔄 [LoginProvider] Retrying Google user insert (attempt ${retries + 1}/$maxRetries)');
+              } else {
+                rethrow;
+              }
+            }
+          }
           
           _currentUserRole = role;
         }

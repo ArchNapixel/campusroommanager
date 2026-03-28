@@ -91,216 +91,227 @@ class _SignUpFormScreenState extends State<SignUpFormScreen> {
           onPressed: widget.onBackPressed,
         ),
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppColors.deepNavy,
-              AppColors.primaryBackground,
-            ],
-          ),
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            child: Container(
-              constraints: BoxConstraints(maxWidth: 400),
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(height: 24),
-                  Text(
-                    'Create Account',
-                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                          color: AppColors.headerText,
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Join us today to book rooms',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: AppColors.mutedText,
-                        ),
-                  ),
-                  SizedBox(height: 40),
+      body: Consumer<LoginProvider>(
+        builder: (context, loginProvider, _) {
+          // Reset local loading state if provider is no longer loading
+          if (!loginProvider.isLoading && _isLoading) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() => _isLoading = false);
+              }
+            });
+          }
 
-                  // Username field
-                  Text(
-                    'Username',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: AppColors.headerText,
-                        ),
-                  ),
-                  SizedBox(height: 8),
-                  TextField(
-                    controller: _usernameController,
-                    enabled: !_isLoading,
-                    decoration: InputDecoration(
-                      hintText: 'Choose a username',
-                      prefixIcon: Icon(Icons.person),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 24),
+          final isLoading = _isLoading || loginProvider.isLoading;
 
-                  // Email field
-                  Text(
-                    'Email Address',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: AppColors.headerText,
-                        ),
-                  ),
-                  SizedBox(height: 8),
-                  TextField(
-                    controller: _emailController,
-                    enabled: !_isLoading,
-                    decoration: InputDecoration(
-                      hintText: 'Enter your email',
-                      prefixIcon: Icon(Icons.email),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                  SizedBox(height: 24),
-
-                  // Password field
-                  Text(
-                    'Password',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: AppColors.headerText,
-                        ),
-                  ),
-                  SizedBox(height: 8),
-                  TextField(
-                    controller: _passwordController,
-                    enabled: !_isLoading,
-                    decoration: InputDecoration(
-                      hintText: 'Create a password',
-                      prefixIcon: Icon(Icons.lock),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                        ),
-                        onPressed: () {
-                          setState(() => _obscurePassword = !_obscurePassword);
-                        },
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    obscureText: _obscurePassword,
-                  ),
-                  SizedBox(height: 24),
-
-                  // Confirm Password field
-                  Text(
-                    'Confirm Password',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: AppColors.headerText,
-                        ),
-                  ),
-                  SizedBox(height: 8),
-                  TextField(
-                    controller: _confirmPasswordController,
-                    enabled: !_isLoading,
-                    decoration: InputDecoration(
-                      hintText: 'Confirm your password',
-                      prefixIcon: Icon(Icons.lock),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscureConfirmPassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                        ),
-                        onPressed: () {
-                          setState(
-                              () => _obscureConfirmPassword = !_obscureConfirmPassword);
-                        },
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    obscureText: _obscureConfirmPassword,
-                  ),
-                  SizedBox(height: 24),
-
-                  // Terms and Conditions
-                  Row(
+          return Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.deepNavy,
+                  AppColors.primaryBackground,
+                ],
+              ),
+            ),
+            child: Center(
+              child: SingleChildScrollView(
+                child: Container(
+                  constraints: BoxConstraints(maxWidth: 400),
+                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Checkbox(
-                        value: _agreeToTerms,
-                        onChanged: _isLoading
-                            ? null
-                            : (value) {
-                                setState(() => _agreeToTerms = value ?? false);
-                              },
-                      ),
-                      Expanded(
-                        child: Text(
-                          'I agree to Terms and Conditions',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: AppColors.bodyText,
-                              ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 24),
-
-                  // Sign Up button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _handleSignUp,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.buttonPrimary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: _isLoading
-                          ? SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  AppColors.headerText,
-                                ),
-                              ),
-                            )
-                          : Text(
-                              'Sign Up',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
+                      SizedBox(height: 24),
+                      Text(
+                        'Create Account',
+                        style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                              color: AppColors.headerText,
+                              fontWeight: FontWeight.bold,
                             ),
-                    ),
-                  ),
-                  SizedBox(height: 16),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Join us today to book rooms',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: AppColors.mutedText,
+                            ),
+                      ),
+                      SizedBox(height: 40),
 
-                  // Google Sign Up Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: Consumer<LoginProvider>(
-                      builder: (context, loginProvider, _) {
-                        return OutlinedButton(
-                          onPressed: _isLoading ? null : () async {
+                      // Username field
+                      Text(
+                        'Username',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: AppColors.headerText,
+                            ),
+                      ),
+                      SizedBox(height: 8),
+                      TextField(
+                        controller: _usernameController,
+                        enabled: !isLoading,
+                        decoration: InputDecoration(
+                          hintText: 'Choose a username',
+                          prefixIcon: Icon(Icons.person),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 24),
+
+                      // Email field
+                      Text(
+                        'Email Address',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: AppColors.headerText,
+                            ),
+                      ),
+                      SizedBox(height: 8),
+                      TextField(
+                        controller: _emailController,
+                        enabled: !isLoading,
+                        decoration: InputDecoration(
+                          hintText: 'Enter your email',
+                          prefixIcon: Icon(Icons.email),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                      SizedBox(height: 24),
+
+                      // Password field
+                      Text(
+                        'Password',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: AppColors.headerText,
+                            ),
+                      ),
+                      SizedBox(height: 8),
+                      TextField(
+                        controller: _passwordController,
+                        enabled: !isLoading,
+                        decoration: InputDecoration(
+                          hintText: 'Create a password',
+                          prefixIcon: Icon(Icons.lock),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () {
+                              setState(() => _obscurePassword = !_obscurePassword);
+                            },
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        obscureText: _obscurePassword,
+                      ),
+                      SizedBox(height: 24),
+
+                      // Confirm Password field
+                      Text(
+                        'Confirm Password',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: AppColors.headerText,
+                            ),
+                      ),
+                      SizedBox(height: 8),
+                      TextField(
+                        controller: _confirmPasswordController,
+                        enabled: !isLoading,
+                        decoration: InputDecoration(
+                          hintText: 'Confirm your password',
+                          prefixIcon: Icon(Icons.lock),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureConfirmPassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () {
+                              setState(
+                                  () => _obscureConfirmPassword = !_obscureConfirmPassword);
+                            },
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        obscureText: _obscureConfirmPassword,
+                      ),
+                      SizedBox(height: 24),
+
+                      // Terms and Conditions
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: _agreeToTerms,
+                            onChanged: isLoading
+                                ? null
+                                : (value) {
+                                    setState(() => _agreeToTerms = value ?? false);
+                                  },
+                          ),
+                          Expanded(
+                            child: Text(
+                              'I agree to Terms and Conditions',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: AppColors.bodyText,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 24),
+
+                      // Sign Up button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: isLoading ? null : _handleSignUp,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.buttonPrimary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: isLoading
+                              ? SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      AppColors.headerText,
+                                    ),
+                                  ),
+                                )
+                              : Text(
+                                  'Sign Up',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      SizedBox(height: 16),
+
+                      // Google Sign Up Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: OutlinedButton(
+                          onPressed: isLoading ? null : () async {
                             setState(() => _isLoading = true);
                             await loginProvider.loginWithGoogle(UserRole.student);
                             setState(() => _isLoading = false);
@@ -340,54 +351,54 @@ class _SignUpFormScreenState extends State<SignUpFormScreen> {
                               ),
                             ],
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                  SizedBox(height: 16),
-
-                  // Divider
-                  Row(
-                    children: [
-                      Expanded(child: Divider(color: AppColors.mutedText, thickness: 1)),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          'or',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: AppColors.mutedText,
-                              ),
                         ),
                       ),
-                      Expanded(child: Divider(color: AppColors.mutedText, thickness: 1)),
-                    ],
-                  ),
-                  SizedBox(height: 16),
+                      SizedBox(height: 16),
 
-                  // Already have account
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Already have an account? ',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppColors.mutedText,
+                      // Divider
+                      Row(
+                        children: [
+                          Expanded(child: Divider(color: AppColors.mutedText, thickness: 1)),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(
+                              'or',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppColors.mutedText,
+                                  ),
                             ),
+                          ),
+                          Expanded(child: Divider(color: AppColors.mutedText, thickness: 1)),
+                        ],
                       ),
-                      TextButton(
-                        onPressed: _isLoading ? null : widget.onBackPressed,
-                        child: Text(
-                          'Login',
-                          style: TextStyle(color: AppColors.buttonPrimary),
-                        ),
+                      SizedBox(height: 16),
+
+                      // Already have account
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Already have an account? ',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: AppColors.mutedText,
+                                ),
+                          ),
+                          TextButton(
+                            onPressed: isLoading ? null : widget.onBackPressed,
+                            child: Text(
+                              'Login',
+                              style: TextStyle(color: AppColors.buttonPrimary),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
