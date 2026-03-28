@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../core/models/room_model.dart';
-import '../core/models/booking_model.dart';
+import '../core/services/database_service.dart';
 import '../core/theme/app_theme.dart';
 import '../modules/bookings/bookings_provider.dart';
-import '../modules/rooms/rooms_provider.dart';
 
 /// Room booking screen with calendar and time slot selection
 class RoomBookingScreen extends StatefulWidget {
@@ -22,7 +21,6 @@ class RoomBookingScreen extends StatefulWidget {
 class _RoomBookingScreenState extends State<RoomBookingScreen> {
   late DateTime _selectedDate;
   DateTime? _focusedDate;
-  late RoomsProvider _roomsProvider;
   late BookingsProvider _bookingsProvider;
   final _purposeController = TextEditingController();
   final _occupantsController = TextEditingController();
@@ -45,13 +43,11 @@ class _RoomBookingScreenState extends State<RoomBookingScreen> {
     super.initState();
     _selectedDate = DateTime.now();
     _focusedDate = DateTime.now();
-    _roomsProvider = RoomsProvider();
     _bookingsProvider = BookingsProvider();
     _checkSlotAvailability();
   }
 
   Future<void> _checkSlotAvailability() async {
-    await _bookingsProvider.loadBookings();
     final availability = <String, bool>{};
 
     for (int i = 0; i < timeSlots.length; i++) {
@@ -71,8 +67,8 @@ class _RoomBookingScreenState extends State<RoomBookingScreen> {
         endHour,
       );
 
-      // Check if room is available for this time slot
-      final isAvailable = _bookingsProvider.isRoomAvailable(
+      // Check if room is available for this time slot using DatabaseService
+      final isAvailable = await DatabaseService.isRoomAvailable(
         widget.room.id,
         startTime,
         endTime,
@@ -81,10 +77,12 @@ class _RoomBookingScreenState extends State<RoomBookingScreen> {
       availability[timeSlots[i]] = isAvailable;
     }
 
-    setState(() {
-      _slotAvailability = availability;
-      _selectedTimeSlot = null;
-    });
+    if (mounted) {
+      setState(() {
+        _slotAvailability = availability;
+        _selectedTimeSlot = null;
+      });
+    }
   }
 
   void _onDateSelected(DateTime selectedDate, DateTime focusedDate) {
@@ -164,20 +162,31 @@ class _RoomBookingScreenState extends State<RoomBookingScreen> {
   }
 
   Future<void> _createBooking(DateTime startTime, DateTime endTime) async {
-    final booking = Booking(
-      id: 'booking_${DateTime.now().millisecondsSinceEpoch}',
+    // TODO: Get current user ID from auth provider
+    const userId = 'current_user';
+    
+    final success = await _bookingsProvider.createBooking(
       roomId: widget.room.id,
-      userId: 'current_user', // TODO: Get from auth
+      userId: userId,
       startTime: startTime,
       endTime: endTime,
-      purpose: _purposeController.text,
-      status: BookingStatus.pending,
-      expectedOccupants: int.tryParse(_occupantsController.text) ?? 1,
-      createdAt: DateTime.now(),
-      notes: '',
+      purpose: _purposeController.text.isNotEmpty 
+        ? _purposeController.text 
+        : 'Room Booking',
     );
 
-    await _bookingsProvider.createBooking(booking);
+    if (mounted) {
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Booking created successfully')),
+        );
+        Navigator.pop(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_bookingsProvider.errorMessage ?? 'Failed to create booking')),
+        );
+      }
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

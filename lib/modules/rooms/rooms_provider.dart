@@ -1,162 +1,240 @@
 import 'package:flutter/material.dart';
-import 'dart:math';
-import '../../core/factories/room_factory.dart';
+import '../../core/services/database_service.dart';
 import '../../core/models/room_model.dart';
 
-/// State provider for rooms
+/// Provider for managing rooms and availability
 class RoomsProvider with ChangeNotifier {
-  List<Room> _rooms = [];
+  List<Map<String, dynamic>> _rooms = [];
+  Map<String, dynamic>? _selectedRoom;
+  String? _errorMessage;
   bool _isLoading = false;
+  List<Map<String, dynamic>> _roomBookings = [];
 
-  List<Room> get rooms => _rooms;
+  // Getters
+  List<Map<String, dynamic>> get rooms => _rooms;
+  Map<String, dynamic>? get selectedRoom => _selectedRoom;
+  String? get errorMessage => _errorMessage;
   bool get isLoading => _isLoading;
+  List<Map<String, dynamic>> get roomBookings => _roomBookings;
 
-  /// Load all rooms from database
+  /// Convert Maps to Room models
+  List<Room> get roomsAsModels =>
+      _rooms.map((r) => _mapToRoom(r)).toList();
+  Map<String, Room> get roomsMapAsModels {
+    final map = <String, Room>{};
+    for (var room in _rooms) {
+      final id = room['id'] as String;
+      map[id] = _mapToRoom(room);
+    }
+    return map;
+  }
+
+  /// Helper to convert Map to Room model
+  Room _mapToRoom(Map<String, dynamic> data) {
+    RoomType typeFromString(String type) {
+      switch (type.toLowerCase()) {
+        case 'lab':
+          return RoomType.lab;
+        case 'audio_visual':
+        case 'audiovisual':
+          return RoomType.audioVisual;
+        case 'classroom':
+          return RoomType.classroom;
+        default:
+          return RoomType.other;
+      }
+    }
+
+    OccupancyStatus statusFromString(String status) {
+      switch (status.toLowerCase()) {
+        case 'occupied':
+          return OccupancyStatus.occupied;
+        case 'pending':
+          return OccupancyStatus.pending;
+        case 'maintenance':
+          return OccupancyStatus.maintenance;
+        default:
+          return OccupancyStatus.available;
+      }
+    }
+
+    return Room(
+      id: data['id'] ?? '',
+      name: data['name'] ?? '',
+      capacity: data['capacity'] ?? 0,
+      type: typeFromString(data['type'] ?? 'other'),
+      building: data['building'] ?? '',
+      floor: data['floor'] ?? '1',
+      roomNumber: data['room_number'] ?? '',
+      occupancyStatus: statusFromString(data['status'] ?? 'available'),
+      lastUpdated: data['updated_at'] != null 
+          ? DateTime.parse(data['updated_at'])
+          : DateTime.now(),
+      amenities: data['amenities'] ?? {},
+      latitude: data['latitude'] as double?,
+      longitude: data['longitude'] as double?,
+    );
+  }
+
+  /// Load all rooms
   Future<void> loadRooms() async {
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
     try {
-      // TODO: Fetch rooms from database/API
-      _rooms = [];
+      _rooms = await DatabaseService.getAllRooms();
+      print('✅ [RoomsProvider] Loaded ${_rooms.length} rooms');
     } catch (e) {
-      print('Error loading rooms: $e');
-      _rooms = [];
-    }
-
-    _isLoading = false;
-    notifyListeners();
-  }
-
-  /// Find room by ID
-  Room? getRoomById(String id) {
-    try {
-      return _rooms.firstWhere((room) => room.id == id);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  /// Filter rooms by type
-  List<Room> getRoomsByType(RoomType type) {
-    return _rooms.where((room) => room.type == type).toList();
-  }
-
-  /// Filter available rooms
-  List<Room> getAvailableRooms() {
-    return _rooms
-        .where((room) => room.occupancyStatus == OccupancyStatus.available)
-        .toList();
-  }
-
-  /// Search rooms
-  List<Room> searchRooms(String query) {
-    final lowerQuery = query.toLowerCase();
-    return _rooms.where((room) {
-      return room.name.toLowerCase().contains(lowerQuery) ||
-          room.building.toLowerCase().contains(lowerQuery) ||
-          room.roomNumber.toLowerCase().contains(lowerQuery);
-    }).toList();
-  }
-
-  /// Update room occupancy status
-  void updateRoomStatus(String roomId, OccupancyStatus status) {
-    final index = _rooms.indexWhere((room) => room.id == roomId);
-    if (index != -1) {
-      _rooms[index] =
-          _rooms[index].copyWith(occupancyStatus: status, lastUpdated: DateTime.now());
+      _errorMessage = e.toString();
+      print('❌ [RoomsProvider] Error loading rooms: $e');
+    } finally {
+      _isLoading = false;
       notifyListeners();
     }
   }
 
-  /// Create a new room
-  void createRoom({
-    required String name,
-    required String building,
-    required String roomNumber,
-    required int capacity,
-    String? floor,
-    RoomType roomType = RoomType.classroom,
-  }) {
-    // Generate amenities based on room type
-    final random = Random();
-    Map<String, dynamic> amenities = {};
-
-    switch (roomType) {
-      case RoomType.lab:
-        amenities = {
-          'hasEquipment': random.nextBool(),
-          'hasProjector': random.nextBool(),
-          'hasWhiteboard': true,
-          'hasComputers': random.nextBool(),
-        };
-        break;
-      case RoomType.audioVisual:
-        amenities = {
-          'hasProjector': true,
-          'hasAudioSystem': random.nextBool(),
-          'hasSoundboard': random.nextBool(),
-          'hasScreenShare': true,
-          'hasRecording': random.nextBool(),
-        };
-        break;
-      case RoomType.classroom:
-        amenities = {
-          'hasProjector': true,
-          'hasWhiteboard': random.nextBool(),
-          'hasSeating': true,
-          'hasClimateControl': random.nextBool(),
-        };
-        break;
-      case RoomType.other:
-        amenities = {};
-        break;
-    }
-
-    final newRoom = Room(
-      id: 'room_${DateTime.now().millisecondsSinceEpoch}',
-      name: name,
-      capacity: capacity,
-      type: roomType,
-      building: building,
-      floor: floor ?? '1',
-      roomNumber: roomNumber,
-      occupancyStatus: OccupancyStatus.available,
-      lastUpdated: DateTime.now(),
-      amenities: amenities,
-    );
-    _rooms.add(newRoom);
+  /// Load rooms by building
+  Future<void> loadRoomsByBuilding(String building) async {
+    _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
-  }
 
-  /// Delete a room by ID
-  void deleteRoom(String roomId) {
-    _rooms.removeWhere((room) => room.id == roomId);
-    notifyListeners();
-  }
-
-  /// Update a room
-  void updateRoom({
-    required String roomId,
-    String? name,
-    String? building,
-    String? roomNumber,
-    int? capacity,
-    String? floor,
-    RoomType? type,
-  }) {
-    final index = _rooms.indexWhere((room) => room.id == roomId);
-    if (index != -1) {
-      _rooms[index] = _rooms[index].copyWith(
-        name: name,
-        building: building,
-        roomNumber: roomNumber,
-        capacity: capacity,
-        floor: floor,
-        type: type,
-        lastUpdated: DateTime.now(),
-      );
+    try {
+      _rooms = await DatabaseService.getRoomsByBuilding(building);
+      print('✅ [RoomsProvider] Loaded ${_rooms.length} rooms from $building');
+    } catch (e) {
+      _errorMessage = e.toString();
+      print('❌ [RoomsProvider] Error loading rooms: $e');
+    } finally {
+      _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Get room details
+  Future<void> selectRoom(String roomId) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      _selectedRoom = await DatabaseService.getRoom(roomId);
+      // Also load bookings for this room
+      _roomBookings = await DatabaseService.getRoomBookings(roomId);
+      print('✅ [RoomsProvider] Selected room: $roomId');
+    } catch (e) {
+      _errorMessage = e.toString();
+      print('❌ [RoomsProvider] Error selecting room: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Check room availability
+  Future<bool> checkAvailability(
+    String roomId,
+    DateTime startTime,
+    DateTime endTime,
+  ) async {
+    try {
+      return await DatabaseService.isRoomAvailable(roomId, startTime, endTime);
+    } catch (e) {
+      _errorMessage = e.toString();
+      print('❌ [RoomsProvider] Error checking availability: $e');
+      return false;
+    }
+  }
+
+  /// Get available buildings (distinct)
+  List<String> getBuildings() {
+    final buildings = <String>{};
+    for (var room in _rooms) {
+      buildings.add(room['building'] as String);
+    }
+    return buildings.toList()..sort();
+  }
+
+  /// Filter rooms by capacity
+  List<Map<String, dynamic>> filterByCapacity(int minCapacity) {
+    return _rooms.where((room) => (room['capacity'] as int) >= minCapacity).toList();
+  }
+
+  /// Get room status
+  String getRoomStatus(String roomId) {
+    try {
+      final room = _rooms.firstWhere((r) => r['id'] == roomId);
+      return room['status'] as String? ?? 'available';
+    } catch (e) {
+      return 'unknown';
+    }
+  }
+
+  /// Clear selection
+  void clearSelection() {
+    _selectedRoom = null;
+    _roomBookings = [];
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  /// Create new room
+  Future<bool> createRoom(Map<String, dynamic> roomData) async {
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      print('📱 [RoomsProvider] Creating new room');
+      await DatabaseService.createRoom(roomData);
+      // Reload rooms to refresh list
+      await loadRooms();
+      print('✅ [RoomsProvider] Room created successfully');
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      print('❌ [RoomsProvider] Error creating room: $e');
+      return false;
+    }
+  }
+
+  /// Update existing room
+  Future<bool> updateRoom(String roomId, Map<String, dynamic> updates) async {
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      print('📱 [RoomsProvider] Updating room: $roomId');
+      await DatabaseService.updateRoom(roomId, updates);
+      // Reload rooms to refresh
+      await loadRooms();
+      print('✅ [RoomsProvider] Room updated successfully');
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      print('❌ [RoomsProvider] Error updating room: $e');
+      return false;
+    }
+  }
+
+  /// Delete room
+  Future<bool> deleteRoom(String roomId) async {
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      print('📱 [RoomsProvider] Deleting room: $roomId');
+      // Remove from local list
+      _rooms.removeWhere((r) => r['id'] == roomId);
+      // TODO: Add database delete operation when available
+      // await DatabaseService.deleteRoom(roomId);
+      print('✅ [RoomsProvider] Room deleted successfully');
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      print('❌ [RoomsProvider] Error deleting room: $e');
+      return false;
     }
   }
 }

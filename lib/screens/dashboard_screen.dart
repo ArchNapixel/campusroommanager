@@ -40,7 +40,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _applyFilters() {
     setState(() {
-      _filteredRooms = _roomsProvider.rooms.where((room) {
+      _filteredRooms = _roomsProvider.roomsAsModels.where((room) {
         final matchesSearch = room.name
                 .toLowerCase()
                 .contains(_searchController.text.toLowerCase()) ||
@@ -160,12 +160,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     roomNumberController.text.isNotEmpty &&
                     capacityController.text.isNotEmpty) {
                   _roomsProvider.updateRoom(
-                    roomId: room.id,
-                    name: nameController.text,
-                    building: buildingController.text,
-                    roomNumber: roomNumberController.text,
-                    capacity: int.tryParse(capacityController.text) ?? 0,
-                    type: selectedType,
+                    room.id,
+                    {
+                      'name': nameController.text,
+                      'building': buildingController.text,
+                      'room_number': roomNumberController.text,
+                      'capacity': int.tryParse(capacityController.text) ?? 0,
+                      'type': selectedType.toString().split('.').last,
+                    },
                   );
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Room updated successfully!')),
@@ -321,11 +323,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     roomNumberController.text.isNotEmpty &&
                     capacityController.text.isNotEmpty) {
                   _roomsProvider.createRoom(
-                    name: nameController.text,
-                    building: buildingController.text,
-                    roomNumber: roomNumberController.text,
-                    capacity: int.tryParse(capacityController.text) ?? 0,
-                    roomType: selectedType,
+                    {
+                      'name': nameController.text,
+                      'building': buildingController.text,
+                      'room_number': roomNumberController.text,
+                      'capacity': int.tryParse(capacityController.text) ?? 0,
+                      'type': selectedType.toString().split('.').last,
+                    },
                   );
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Room created successfully!')),

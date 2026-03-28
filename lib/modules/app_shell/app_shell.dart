@@ -81,7 +81,7 @@ class _AppShellState extends State<AppShell> {
   Widget _buildBookingsScreen() {
     final bookingsProvider = BookingsProvider();
     return FutureBuilder(
-      future: bookingsProvider.loadBookings(),
+      future: bookingsProvider.loadAllBookings(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(child: CircularProgressIndicator());
@@ -93,10 +93,9 @@ class _AppShellState extends State<AppShell> {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return Center(child: CircularProgressIndicator());
             }
-            final roomsMap =
-                {for (var room in roomsProvider.rooms) room.id: room};
+            final roomsMap = roomsProvider.roomsMapAsModels;
             return BookingTable(
-              bookings: bookingsProvider.bookings,
+              bookings: bookingsProvider.allBookingsAsModels,
               roomsMap: roomsMap,
             );
           },
@@ -132,9 +131,9 @@ class _AppShellState extends State<AppShell> {
 
   Future<Map> _loadSchedules() async {
     final bookingsProvider = BookingsProvider();
-    await bookingsProvider.loadBookings();
+    await bookingsProvider.loadAllBookings();
     final schedulesProvider = SchedulesProvider();
-    await schedulesProvider.loadSchedules(bookingsProvider.bookings);
+    await schedulesProvider.loadSchedules(bookingsProvider.allBookingsAsModels);
     final spec = ScheduleCalendarBuilder()
         .showMonthView(true)
         .highlightTodaysEvents(true)

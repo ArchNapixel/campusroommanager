@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/factories/user_factory.dart';
 import '../../core/models/user_model.dart';
 
 /// State provider for users
