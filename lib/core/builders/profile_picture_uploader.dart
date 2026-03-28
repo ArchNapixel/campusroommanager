@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/storage_service.dart';
@@ -26,7 +26,7 @@ class ProfilePictureUploader extends StatefulWidget {
 class _ProfilePictureUploaderState extends State<ProfilePictureUploader> {
   bool _isLoading = false;
   String? _errorMessage;
-  File? _selectedImage;
+  Uint8List? _selectedImageBytes;
   final ImagePicker _imagePicker = ImagePicker();
 
   /// Pick an image from gallery or camera
@@ -40,8 +40,11 @@ class _ProfilePictureUploaderState extends State<ProfilePictureUploader> {
       );
 
       if (pickedFile != null) {
+        // Read bytes from the picked file
+        final imageBytes = await pickedFile.readAsBytes();
+        
         setState(() {
-          _selectedImage = File(pickedFile.path);
+          _selectedImageBytes = imageBytes;
           _errorMessage = null;
         });
 
@@ -62,20 +65,22 @@ class _ProfilePictureUploaderState extends State<ProfilePictureUploader> {
         title: const Text('Upload Profile Picture?'),
         content: Container(
           constraints: const BoxConstraints(maxHeight: 300),
-          child: _selectedImage != null
-              ? Image.file(_selectedImage!, fit: BoxFit.cover)
+          child: _selectedImageBytes != null
+              ? Image.memory(_selectedImageBytes!, fit: BoxFit.cover)
               : const SizedBox.shrink(),
         ),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              setState(() => _selectedImage = null);
+              setState(() {
+                _selectedImageBytes = null;
+              });
             },
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: _selectedImage != null ? _uploadImage : null,
+            onPressed: _selectedImageBytes != null ? _uploadImage : null,
             child: const Text('Upload'),
           ),
         ],
@@ -85,7 +90,7 @@ class _ProfilePictureUploaderState extends State<ProfilePictureUploader> {
 
   /// Upload the selected image to Supabase Storage
   Future<void> _uploadImage() async {
-    if (_selectedImage == null) return;
+    if (_selectedImageBytes == null) return;
 
     setState(() {
       _isLoading = true;
@@ -100,10 +105,10 @@ class _ProfilePictureUploaderState extends State<ProfilePictureUploader> {
       // Delete previous pictures
       await StorageService.deleteProfilePicture(widget.userId);
 
-      // Upload new picture
+      // Upload new picture - pass bytes for web compatibility
       final imageUrl = await StorageService.uploadProfilePicture(
         widget.userId,
-        _selectedImage!,
+        _selectedImageBytes!,
       );
 
       print('✅ [ProfilePictureUploader] Upload successful: $imageUrl');
@@ -112,7 +117,7 @@ class _ProfilePictureUploaderState extends State<ProfilePictureUploader> {
         Navigator.pop(context); // Close dialog
         setState(() {
           _isLoading = false;
-          _selectedImage = null;
+          _selectedImageBytes = null;
         });
         widget.onUploadComplete(imageUrl);
 

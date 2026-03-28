@@ -1,16 +1,18 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'supabase_service.dart';
 
 /// Service for handling Supabase Storage operations (profile pictures, room images, etc.)
 class StorageService {
-  static const String _profilesBucket = 'profiles';
-  static const String _roomsBucket = 'rooms';
+  static const String _profilesBucket = 'files';
+  static const String _roomsBucket = 'files';
 
   /// Upload a profile picture for a user
   /// Returns the public URL of the uploaded image
+  /// Accepts either File or Uint8List for web/mobile compatibility
   static Future<String> uploadProfilePicture(
     String userId,
-    File imageFile,
+    dynamic imageData, // File or Uint8List
   ) async {
     try {
       print('📸 [StorageService] Uploading profile picture for user: $userId');
@@ -19,10 +21,21 @@ class StorageService {
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
       final filePath = '$userId/$fileName';
 
+      // Convert File to bytes if needed (for web compatibility)
+      Uint8List imageBytes;
+      if (imageData is File) {
+        imageBytes = await imageData.readAsBytes();
+      } else if (imageData is Uint8List) {
+        imageBytes = imageData;
+      } else {
+        throw Exception(
+            'Invalid image data type. Expected File or Uint8List');
+      }
+
       // Upload to Supabase Storage
       await SupabaseService.client.storage
           .from(_profilesBucket)
-          .upload(filePath, imageFile);
+          .uploadBinary(filePath, imageBytes);
 
       print('✅ [StorageService] Profile picture uploaded: $filePath');
 
@@ -68,9 +81,10 @@ class StorageService {
   }
 
   /// Upload a room image
+  /// Accepts either File or Uint8List for web/mobile compatibility
   static Future<String> uploadRoomImage(
     String roomId,
-    File imageFile,
+    dynamic imageData, // File or Uint8List
   ) async {
     try {
       print('📸 [StorageService] Uploading room image for room: $roomId');
@@ -78,9 +92,20 @@ class StorageService {
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
       final filePath = '$roomId/$fileName';
 
+      // Convert File to bytes if needed (for web compatibility)
+      Uint8List imageBytes;
+      if (imageData is File) {
+        imageBytes = await imageData.readAsBytes();
+      } else if (imageData is Uint8List) {
+        imageBytes = imageData;
+      } else {
+        throw Exception(
+            'Invalid image data type. Expected File or Uint8List');
+      }
+
       await SupabaseService.client.storage
           .from(_roomsBucket)
-          .upload(filePath, imageFile);
+          .uploadBinary(filePath, imageBytes);
 
       print('✅ [StorageService] Room image uploaded: $filePath');
 
