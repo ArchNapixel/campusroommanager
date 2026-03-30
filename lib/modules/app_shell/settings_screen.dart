@@ -244,13 +244,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              loginProvider.logout();
-              Navigator.of(context).pushNamedAndRemoveUntil(
-                '/',
-                (route) => false,
-              );
+              await loginProvider.logout();
+              // Consumer in AppRoot will detect isAuthenticated = false and navigate
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,

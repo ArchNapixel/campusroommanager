@@ -172,10 +172,6 @@ class _AppShellState extends State<AppShell> {
               // TODO: Show user profile menu
             },
           ),
-          IconButton(
-            icon: Icon(Icons.logout),
-            onPressed: widget.onLogout,
-          ),
         ],
         leading: isMobile
             ? IconButton(

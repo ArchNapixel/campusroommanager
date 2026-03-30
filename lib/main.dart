@@ -7,6 +7,7 @@ import 'modules/login/login_barrel.dart';
 import 'modules/login/dialogs/auth_flow_dialogs.dart';
 import 'modules/app_shell/app_shell_barrel.dart';
 import 'screens/admin_login_screen.dart';
+import 'screens/google_signup_credentials_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,13 +41,43 @@ class AppRoot extends StatefulWidget {
 }
 
 class _AppRootState extends State<AppRoot> {
-  late AuthFlowState _authFlowState;
+  AuthFlowState _authFlowState = AuthFlowState.splash;
 
   @override
   void initState() {
     super.initState();
-    _authFlowState = AuthFlowState.splash;
-    print('🎯 [AppRoot] initState - Setting state to splash');
+    _initializeAuth();
+  }
+
+  Future<void> _initializeAuth() async {
+    print('🎯 [AppRoot] initState - Checking for existing session');
+    
+    // Check if there's already an authenticated user from OAuth redirect
+    final authUser = SupabaseService.client.auth.currentUser;
+    
+    if (authUser != null) {
+      print('✅ [AppRoot] Found existing session: ${authUser.email}');
+      
+      // Initialize LoginProvider from the session
+      if (mounted) {
+        final loginProvider = context.read<LoginProvider>();
+        await loginProvider.initializeFromExistingSession();
+        
+        if (loginProvider.isAuthenticated) {
+          setState(() => _authFlowState = AuthFlowState.authenticated);
+        } else if (loginProvider.googleSignUpData != null) {
+          // User authenticated but no database record - show credentials form
+          setState(() => _authFlowState = AuthFlowState.signupForm);
+        } else {
+          // Error or no state detected
+          setState(() => _authFlowState = AuthFlowState.splash);
+        }
+      }
+    } else {
+      // No existing session, start from splash
+      setState(() => _authFlowState = AuthFlowState.splash);
+      print('🖼️  [AppRoot] No session found, showing splash');
+    }
   }
 
   @override
@@ -67,8 +98,27 @@ class _AppRootState extends State<AppRoot> {
             loginProvider.currentUserRole != null) {
           return AppShell(
             userRole: loginProvider.currentUserRole!,
-            onLogout: () {
-              loginProvider.logout();
+            onLogout: () async {
+              await loginProvider.logout();
+              if (mounted) {
+                setState(() => _authFlowState = AuthFlowState.authChoice);
+              }
+            },
+          );
+        }
+
+        // Show credentials screen if user just authenticated via OAuth
+        if (loginProvider.googleSignUpData != null &&
+            _authFlowState == AuthFlowState.signupForm) {
+          print('📱 [AppRoot] Showing credentials screen for new OAuth user');
+          final data = loginProvider.googleSignUpData!;
+          return GoogleSignupCredentialsScreen(
+            userId: data['id']!,
+            googleEmail: data['email']!,
+            googleName: data['display_name']!,
+            googleAvatarUrl: data['photo_url'],
+            onBackPressed: () {
+              loginProvider.clearError();
               setState(() => _authFlowState = AuthFlowState.authChoice);
             },
           );
@@ -173,19 +223,6 @@ class _AppRootState extends State<AppRoot> {
             return SignUpFormScreen(
               onBackPressed: () {
                 setState(() => _authFlowState = AuthFlowState.authChoice);
-              },
-              onSignUpPressed: (username, email, password) {
-                // Don't change state to roleSelection - keep showing signupForm
-                // Dialog will appear on top, and on error we'll already be on this form
-                AuthFlowDialogs.showSignupRoleSelection(
-                  context,
-                  loginProvider,
-                  username,
-                  email,
-                  password,
-                  setState,
-                  () => setState(() => _authFlowState = AuthFlowState.signupForm),
-                );
               },
             );
 
