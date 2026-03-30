@@ -45,17 +45,20 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          // Calendar
-          if (widget.spec.showMonthView)
-            Card(
-              margin: EdgeInsets.all(16),
-              color: AppColors.secondaryBackground,
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: TableCalendar(
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 1200),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // Calendar
+              if (widget.spec.showMonthView)
+                Card(
+                  margin: EdgeInsets.all(16),
+                  color: AppColors.secondaryBackground,
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: TableCalendar(
                   focusedDay: _focusedDay,
                   firstDay: DateTime.now().subtract(Duration(days: 365)),
                   lastDay: DateTime.now().add(Duration(days: 365)),
@@ -134,6 +137,8 @@ class _ScheduleCalendarViewState extends State<ScheduleCalendarView> {
               ),
             ),
         ],
+          ),
+        ),
       ),
     );
   }

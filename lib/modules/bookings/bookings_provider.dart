@@ -93,6 +93,7 @@ class BookingsProvider with ChangeNotifier {
   }
 
   /// Create booking
+  /// Create booking with comprehensive error handling and validation
   Future<bool> createBooking({
     required String roomId,
     required String userId,
@@ -101,12 +102,81 @@ class BookingsProvider with ChangeNotifier {
     String? purpose,
   }) async {
     _errorMessage = null;
+    _isLoading = true;
     notifyListeners();
 
     try {
       print('📱 [BookingsProvider] Creating booking for room: $roomId');
+
+      // ============ CLIENT-SIDE VALIDATION ============
       
-      // Check availability first
+      // 1. Validate time range
+      if (startTime.isAfter(endTime)) {
+        _errorMessage = 'Start time must be before end time';
+        print('❌ [BookingsProvider] Validation error: ${_errorMessage}');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // 2. Check minimum booking duration
+      final duration = endTime.difference(startTime);
+      if (duration.inMinutes < 30) {
+        _errorMessage = 'Minimum booking duration is 30 minutes';
+        print('❌ [BookingsProvider] Validation error: ${_errorMessage}');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // 3. Check maximum booking duration
+      if (duration.inHours > 8) {
+        _errorMessage = 'Maximum booking duration is 8 hours';
+        print('❌ [BookingsProvider] Validation error: ${_errorMessage}');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // 4. Don't allow bookings in the past
+      if (startTime.isBefore(DateTime.now())) {
+        _errorMessage = 'Cannot create bookings in the past';
+        print('❌ [BookingsProvider] Validation error: ${_errorMessage}');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // 5. Validate purpose
+      final finalPurpose = purpose?.trim() ?? 'Room reservation';
+      if (finalPurpose.isEmpty) {
+        _errorMessage = 'Booking purpose cannot be empty';
+        print('❌ [BookingsProvider] Validation error: ${_errorMessage}');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      if (finalPurpose.length > 500) {
+        _errorMessage = 'Booking purpose must be less than 500 characters';
+        print('❌ [BookingsProvider] Validation error: ${_errorMessage}');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // 6. Validate room and user IDs
+      if (roomId.isEmpty || userId.isEmpty) {
+        _errorMessage = 'Invalid room or user selection';
+        print('❌ [BookingsProvider] Validation error: ${_errorMessage}');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // ============ CONFLICT DETECTION ============
+      
+      // Check availability
       final available = await DatabaseService.isRoomAvailable(
         roomId,
         startTime,
@@ -114,52 +184,320 @@ class BookingsProvider with ChangeNotifier {
       );
 
       if (!available) {
-        _errorMessage = 'Room is not available for the selected time';
-        print('❌ [BookingsProvider] Room not available');
+        // Find conflicting booking for detailed message
+        final conflicting = _allBookings.firstWhere(
+          (b) =>
+              b['room_id'] == roomId &&
+              b['status'] != 'cancelled' &&
+              _timeConflict(
+                DateTime.parse(b['start_time']),
+                DateTime.parse(b['end_time']),
+                startTime,
+                endTime,
+              ),
+          orElse: () => {},
+        );
+
+        if (conflicting.isNotEmpty) {
+          final s = DateTime.parse(conflicting['start_time']);
+          final e = DateTime.parse(conflicting['end_time']);
+          _errorMessage = 'Room is booked ${s.hour}:${s.minute.toString().padLeft(2, '0')}-${e.hour}:${e.minute.toString().padLeft(2, '0')}';
+        } else {
+          _errorMessage = 'Room is not available for selected time';
+        }
+        print('❌ [BookingsProvider] Conflict: ${_errorMessage}');
+        _isLoading = false;
         notifyListeners();
         return false;
       }
 
-      // Create booking
+      // Check daily booking limit
+      final bookingsToday = _userBookings.where((b) {
+        final bStart = DateTime.parse(b['start_time']);
+        return bStart.year == startTime.year &&
+            bStart.month == startTime.month &&
+            bStart.day == startTime.day &&
+            b['status'] != 'cancelled';
+      }).length;
+
+      if (bookingsToday >= 5) {
+        _errorMessage = 'Maximum 5 bookings per day reached';
+        print('❌ [BookingsProvider] Daily limit: ${_errorMessage}');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // ============ DATABASE CREATION ============
+      
       await DatabaseService.createBooking({
         'room_id': roomId,
         'user_id': userId,
         'start_time': startTime.toIso8601String(),
         'end_time': endTime.toIso8601String(),
-        'purpose': purpose ?? 'Room reservation',
+        'purpose': finalPurpose,
         'status': 'pending',
       });
 
       print('✅ [BookingsProvider] Booking created successfully');
-      // Reload bookings
       await loadUserBookings(userId);
+      
+      _isLoading = false;
+      notifyListeners();
       return true;
     } catch (e) {
-      _errorMessage = e.toString();
-      print('❌ [BookingsProvider] Error creating booking: $e');
+      final errorStr = e.toString();
+      if (errorStr.contains('permission')) {
+        _errorMessage = 'You do not have permission to create bookings';
+      } else if (errorStr.contains('unique')) {
+        _errorMessage = 'Booking already exists for this time';
+      } else if (errorStr.contains('connection') || errorStr.contains('network')) {
+        _errorMessage = 'Network error: Please check connection';
+      } else {
+        _errorMessage = 'Booking failed: Please try again';
+      }
+      print('❌ [BookingsProvider] Error: $e');
+      _isLoading = false;
+      notifyListeners();
       return false;
     }
   }
 
+  /// Helper to detect time conflicts
+  bool _timeConflict(DateTime s1, DateTime e1, DateTime s2, DateTime e2) {
+    return s1.isBefore(e2) && s2.isBefore(e1);
+  }
+
   /// Cancel booking
-  Future<bool> cancelBooking(String bookingId) async {
+  /// Enhance cancelBooking with validation and reason tracking
+  Future<bool> cancelBooking(
+    String bookingId, {
+    String reason = 'User cancelled',
+  }) async {
     _errorMessage = null;
+    _isLoading = true;
     notifyListeners();
 
     try {
-      print('📱 [BookingsProvider] Cancelling booking: $bookingId');
-      await DatabaseService.cancelBooking(bookingId);
+      print('📱 [BookingsProvider] Cancelling booking: $bookingId (Reason: $reason)');
+
+      // ============ VALIDATION ============
       
-      // Remove from list
-      _userBookings.removeWhere((b) => b['id'] == bookingId);
-      _allBookings.removeWhere((b) => b['id'] == bookingId);
+      // Find booking
+      final booking = _userBookings.firstWhere(
+        (b) => b['id'] == bookingId,
+        orElse: () => {},
+      );
       
-      print('✅ [BookingsProvider] Booking cancelled');
+      if (booking.isEmpty) {
+        _errorMessage = 'Booking not found';
+        print('❌ [BookingsProvider] Cancellation error: ${_errorMessage}');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // Check status - can't cancel if already completed or cancelled
+      final currentStatus = booking['status'] as String;
+      if (currentStatus == 'completed') {
+        _errorMessage = 'Cannot cancel completed bookings';
+        print('❌ [BookingsProvider] Cancellation error: ${_errorMessage}');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+      
+      if (currentStatus == 'cancelled') {
+        _errorMessage = 'This booking is already cancelled';
+        print('❌ [BookingsProvider] Cancellation error: ${_errorMessage}');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // Check if booking is in past (can't cancel if already started)
+      final startTime = DateTime.parse(booking['start_time']);
+      if (startTime.isBefore(DateTime.now())) {
+        _errorMessage = 'Cannot cancel bookings that have already started';
+        print('❌ [BookingsProvider] Cancellation error: ${_errorMessage}');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // ============ DATABASE UPDATE ============
+      
+      await DatabaseService.updateBookingStatus(bookingId, 'cancelled');
+      
+      // Update local lists
+      final userIndex = _userBookings.indexWhere((b) => b['id'] == bookingId);
+      if (userIndex != -1) {
+        _userBookings[userIndex]['status'] = 'cancelled';
+        _userBookings[userIndex]['cancellation_reason'] = reason;
+        _userBookings[userIndex]['cancelled_at'] = DateTime.now().toIso8601String();
+      }
+      
+      final adminIndex = _allBookings.indexWhere((b) => b['id'] == bookingId);
+      if (adminIndex != -1) {
+        _allBookings[adminIndex]['status'] = 'cancelled';
+        _allBookings[adminIndex]['cancellation_reason'] = reason;
+        _allBookings[adminIndex]['cancelled_at'] = DateTime.now().toIso8601String();
+      }
+      
+      print('✅ [BookingsProvider] Booking cancelled successfully');
+      _isLoading = false;
       notifyListeners();
       return true;
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = 'Failed to cancel booking: ${e.toString()}';
       print('❌ [BookingsProvider] Error cancelling booking: $e');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Modify existing booking (time and/or purpose)
+  Future<bool> modifyBooking({
+    required String bookingId,
+    DateTime? newStartTime,
+    DateTime? newEndTime,
+    String? newPurpose,
+  }) async {
+    _errorMessage = null;
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      print('📱 [BookingsProvider] Modifying booking: $bookingId');
+
+      // ============ FIND BOOKING ============
+      
+      final booking = _userBookings.firstWhere(
+        (b) => b['id'] == bookingId,
+        orElse: () => {},
+      );
+      
+      if (booking.isEmpty) {
+        _errorMessage = 'Booking not found';
+        print('❌ [BookingsProvider] Modification error: ${_errorMessage}');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // ============ VALIDATION ============
+      
+      // Check status - can't modify if completed or cancelled
+      final currentStatus = booking['status'] as String;
+      if (currentStatus == 'completed' || currentStatus == 'cancelled') {
+        _errorMessage = 'Cannot modify ${currentStatus} bookings';
+        print('❌ [BookingsProvider] Modification error: ${_errorMessage}');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // Check if booking is in past
+      final originalStartTime = DateTime.parse(booking['start_time']);
+      if (originalStartTime.isBefore(DateTime.now())) {
+        _errorMessage = 'Cannot modify bookings that have already started';
+        print('❌ [BookingsProvider] Modification error: ${_errorMessage}');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // Use new times or keep original
+      final finalStartTime = newStartTime ?? originalStartTime;
+      final finalEndTime = newEndTime ?? DateTime.parse(booking['end_time']);
+
+      // Validate new times
+      if (finalStartTime.isAfter(finalEndTime)) {
+        _errorMessage = 'Start time must be before end time';
+        print('❌ [BookingsProvider] Validation error: ${_errorMessage}');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // Check duration (30min-8hr)
+      final duration = finalEndTime.difference(finalStartTime);
+      if (duration.inMinutes < 30) {
+        _errorMessage = 'Booking must be at least 30 minutes long';
+        print('❌ [BookingsProvider] Duration error: ${_errorMessage}');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+      
+      if (duration.inHours > 8) {
+        _errorMessage = 'Booking cannot exceed 8 hours';
+        print('❌ [BookingsProvider] Duration error: ${_errorMessage}');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // If time changed, check for conflicts (excluding this booking)
+      if (newStartTime != null || newEndTime != null) {
+        final roomId = booking['room_id'];
+        final conflicting = _allBookings.firstWhere(
+          (b) =>
+              b['room_id'] == roomId &&
+              b['id'] != bookingId &&
+              b['status'] != 'cancelled' &&
+              _timeConflict(
+                DateTime.parse(b['start_time']),
+                DateTime.parse(b['end_time']),
+                finalStartTime,
+                finalEndTime,
+              ),
+          orElse: () => {},
+        );
+
+        if (conflicting.isNotEmpty) {
+          final s = DateTime.parse(conflicting['start_time']);
+          final e = DateTime.parse(conflicting['end_time']);
+          _errorMessage = 'Room is booked ${s.hour}:${s.minute.toString().padLeft(2, '0')}-${e.hour}:${e.minute.toString().padLeft(2, '0')}';
+          print('❌ [BookingsProvider] Conflict: ${_errorMessage}');
+          _isLoading = false;
+          notifyListeners();
+          return false;
+        }
+      }
+
+      // ============ DATABASE UPDATE ============
+      
+      final updates = {
+        if (newStartTime != null) 'start_time': newStartTime.toIso8601String(),
+        if (newEndTime != null) 'end_time': newEndTime.toIso8601String(),
+        if (newPurpose != null) 'purpose': newPurpose,
+        'modified_at': DateTime.now().toIso8601String(),
+      };
+
+      await DatabaseService.updateBooking(bookingId, updates);
+
+      // Update local lists
+      final userIndex = _userBookings.indexWhere((b) => b['id'] == bookingId);
+      if (userIndex != -1) {
+        _userBookings[userIndex].addAll(updates);
+      }
+      
+      final adminIndex = _allBookings.indexWhere((b) => b['id'] == bookingId);
+      if (adminIndex != -1) {
+        _allBookings[adminIndex].addAll(updates);
+      }
+
+      print('✅ [BookingsProvider] Booking modified successfully');
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = 'Failed to modify booking: ${e.toString()}';
+      print('❌ [BookingsProvider] Error modifying booking: $e');
+      _isLoading = false;
+      notifyListeners();
       return false;
     }
   }
@@ -233,6 +571,190 @@ class BookingsProvider with ChangeNotifier {
         })
         .toList()
         ..sort((a, b) => DateTime.parse(b['start_time']).compareTo(DateTime.parse(a['start_time'])));
+  }
+
+  /// ============ ADVANCED FILTERING ============
+
+  /// Filter bookings by date range
+  List<Map<String, dynamic>> filterByDateRange(
+    DateTime startDate,
+    DateTime endDate, {
+    bool includeUserBookingsOnly = true,
+  }) {
+    final bookings = includeUserBookingsOnly ? _userBookings : _allBookings;
+    
+    return bookings
+        .where((b) {
+          final bookingStart = DateTime.parse(b['start_time']);
+          return bookingStart.isAfter(startDate) &&
+              bookingStart.isBefore(endDate) &&
+              b['status'] != 'cancelled';
+        })
+        .toList()
+        ..sort((a, b) =>
+            DateTime.parse(a['start_time']).compareTo(DateTime.parse(b['start_time'])));
+  }
+
+  /// Filter bookings by room
+  List<Map<String, dynamic>> filterByRoom(
+    String roomId, {
+    bool includeAllStatuses = false,
+  }) {
+    return _allBookings
+        .where((b) =>
+            b['room_id'] == roomId &&
+            (includeAllStatuses || b['status'] != 'cancelled'))
+        .toList()
+        ..sort((a, b) =>
+            DateTime.parse(a['start_time']).compareTo(DateTime.parse(b['start_time'])));
+  }
+
+  /// Filter bookings by multiple criteria
+  List<Map<String, dynamic>> advancedFilter({
+    String? roomId,
+    String? status = 'pending',
+    DateTime? startDate,
+    DateTime? endDate,
+    String? searchPurpose,
+  }) {
+    var results = List<Map<String, dynamic>>.from(_allBookings);
+
+    // Filter by room
+    if (roomId != null && roomId.isNotEmpty) {
+      results = results.where((b) => b['room_id'] == roomId).toList();
+    }
+
+    // Filter by status
+    if (status != null && status.isNotEmpty) {
+      results = results.where((b) => b['status'] == status).toList();
+    } else {
+      results = results.where((b) => b['status'] != 'cancelled').toList();
+    }
+
+    // Filter by date range
+    if (startDate != null && endDate != null) {
+      results = results.where((b) {
+        final bookingStart = DateTime.parse(b['start_time']);
+        return bookingStart.isAfter(startDate) && bookingStart.isBefore(endDate);
+      }).toList();
+    }
+
+    // Search in purpose field
+    if (searchPurpose != null && searchPurpose.isNotEmpty) {
+      final query = searchPurpose.toLowerCase();
+      results = results
+          .where((b) =>
+              (b['purpose'] ?? '').toString().toLowerCase().contains(query))
+          .toList();
+    }
+
+    // Sort by start time
+    results.sort(
+        (a, b) => DateTime.parse(a['start_time']).compareTo(DateTime.parse(b['start_time'])));
+
+    return results;
+  }
+
+  /// Get bookings by status with counts
+  Map<String, int> getBookingStatistics() {
+    return {
+      'pending': _userBookings.where((b) => b['status'] == 'pending').length,
+      'confirmed': _userBookings.where((b) => b['status'] == 'confirmed').length,
+      'completed': _userBookings.where((b) => b['status'] == 'completed').length,
+      'cancelled': _userBookings.where((b) => b['status'] == 'cancelled').length,
+    };
+  }
+
+  /// Get all bookings for a specific date
+  List<Map<String, dynamic>> getBookingsForDate(DateTime date) {
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = startOfDay.add(Duration(days: 1));
+
+    return _userBookings
+        .where((b) {
+          final bookingStart = DateTime.parse(b['start_time']);
+          return bookingStart.isAfter(startOfDay) &&
+              bookingStart.isBefore(endOfDay) &&
+              b['status'] != 'cancelled';
+        })
+        .toList()
+        ..sort((a, b) =>
+            DateTime.parse(a['start_time']).compareTo(DateTime.parse(b['start_time'])));
+  }
+
+  /// Get bookings for a room on a specific date
+  List<Map<String, dynamic>> getRoomBookingsForDate(
+    String roomId,
+    DateTime date,
+  ) {
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = startOfDay.add(Duration(days: 1));
+
+    return _allBookings
+        .where((b) {
+          final bookingStart = DateTime.parse(b['start_time']);
+          return b['room_id'] == roomId &&
+              bookingStart.isAfter(startOfDay) &&
+              bookingStart.isBefore(endOfDay) &&
+              b['status'] != 'cancelled';
+        })
+        .toList()
+        ..sort((a, b) =>
+            DateTime.parse(a['start_time']).compareTo(DateTime.parse(b['start_time'])));
+  }
+
+  /// Search bookings by purpose or user info
+  List<Map<String, dynamic>> searchBookings(String query) {
+    if (query.isEmpty) return _userBookings;
+
+    final searchTerm = query.toLowerCase();
+    return _userBookings
+        .where((b) {
+          final purpose = (b['purpose'] ?? '').toString().toLowerCase();
+          return purpose.contains(searchTerm);
+        })
+        .toList()
+        ..sort((a, b) =>
+            DateTime.parse(a['start_time']).compareTo(DateTime.parse(b['start_time'])));
+  }
+
+  /// Get room availability for a date (returns available time slots)
+  List<Map<String, dynamic>> getAvailableTimeSlots(
+    String roomId,
+    DateTime date, {
+    int slotDurationMinutes = 60, // Default 1-hour slots
+    int workStartHour = 8,
+    int workEndHour = 18,
+  }) {
+    final slots = <Map<String, dynamic>>[];
+    final bookings = getRoomBookingsForDate(roomId, date);
+
+    // Generate potential slots
+    for (int hour = workStartHour; hour < workEndHour; hour++) {
+      for (int minute = 0; minute < 60; minute += slotDurationMinutes) {
+        final slotStart = DateTime(date.year, date.month, date.day, hour, minute);
+        final slotEnd = slotStart.add(Duration(minutes: slotDurationMinutes));
+
+        // Check if slot conflicts with existing bookings
+        bool available = !bookings.any((b) =>
+            _timeConflict(
+              DateTime.parse(b['start_time']),
+              DateTime.parse(b['end_time']),
+              slotStart,
+              slotEnd,
+            ));
+
+        if (available) {
+          slots.add({
+            'start': slotStart,
+            'end': slotEnd,
+            'available': true,
+          });
+        }
+      }
+    }
+
+    return slots;
   }
 
   /// Clear error

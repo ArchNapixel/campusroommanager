@@ -6,6 +6,8 @@ import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/status_indicator.dart';
 import 'booking_action_buttons.dart';
 import 'booking_detail_modal.dart';
+import 'booking_cancellation_dialog.dart';
+import 'booking_modification_dialog.dart';
 
 /// Table widget for displaying bookings with search/filter
 class BookingTable extends StatefulWidget {
@@ -122,8 +124,8 @@ class _BookingTableState extends State<BookingTable> {
                     DataCell(
                       BookingActionButtons(
                         booking: booking,
-                        onEdit: () {},
-                        onCancel: () {},
+                        onEdit: () => _showModificationDialog(context, booking, room),
+                        onCancel: () => _showCancellationDialog(context, booking, room),
                         onDetails: () => _showDetails(context, booking, room),
                       ),
                     ),
@@ -145,7 +147,7 @@ class _BookingTableState extends State<BookingTable> {
         final timeFormat = DateFormat('hh:mm a');
 
         return Card(
-          margin: EdgeInsets.only(bottom: 12),
+          margin: EdgeInsets.all(12),
           child: Padding(
             padding: EdgeInsets.all(16),
             child: Column(
@@ -186,8 +188,8 @@ class _BookingTableState extends State<BookingTable> {
                 SizedBox(height: 12),
                 BookingActionButtons(
                   booking: booking,
-                  onEdit: () {},
-                  onCancel: () {},
+                  onEdit: () => _showModificationDialog(context, booking, room),
+                  onCancel: () => _showCancellationDialog(context, booking, room),
                   onDetails: () => _showDetails(context, booking, room),
                 ),
               ],
@@ -205,6 +207,44 @@ class _BookingTableState extends State<BookingTable> {
       builder: (context) => BookingDetailModal(
         booking: booking,
         roomInfo: room,
+      ),
+    );
+  }
+
+  void _showModificationDialog(
+    BuildContext context,
+    Booking booking,
+    Room? room,
+  ) {
+    if (room == null) return;
+    showDialog(
+      context: context,
+      builder: (context) => BookingModificationDialog(
+        booking: booking,
+        roomInfo: room,
+        onModified: () {
+          // Trigger refresh by calling parent callback or refreshing list
+          _applyFilters();
+        },
+      ),
+    );
+  }
+
+  void _showCancellationDialog(
+    BuildContext context,
+    Booking booking,
+    Room? room,
+  ) {
+    if (room == null) return;
+    showDialog(
+      context: context,
+      builder: (context) => BookingCancellationDialog(
+        booking: booking,
+        roomInfo: room,
+        onCancelled: () {
+          // Trigger refresh by calling parent callback or refreshing list
+          _applyFilters();
+        },
       ),
     );
   }

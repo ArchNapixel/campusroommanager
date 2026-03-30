@@ -56,9 +56,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 600),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                     // Profile Section Header
                     const Text(
                       'Profile Picture',
@@ -192,7 +195,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ),
-          );
+          ),
+        ),
+      );
         },
       ),
     );

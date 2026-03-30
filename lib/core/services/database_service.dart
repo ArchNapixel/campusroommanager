@@ -248,6 +248,24 @@ class DatabaseService {
     }
   }
 
+  /// Generic booking update (time, purpose, etc.)
+  static Future<void> updateBooking(
+    String bookingId,
+    Map<String, dynamic> updates,
+  ) async {
+    try {
+      print('📊 [DatabaseService] Updating booking: $bookingId with $updates');
+      await _client
+          .from('bookings')
+          .update(updates)
+          .eq('id', bookingId);
+      print('✅ [DatabaseService] Booking updated');
+    } catch (e) {
+      print('❌ [DatabaseService] Error updating booking: $e');
+      rethrow;
+    }
+  }
+
   // ==================== SCHEDULES ====================
 
   /// Get schedules for a room

@@ -233,9 +233,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final roomNumberController = TextEditingController();
     final capacityController = TextEditingController();
     RoomType selectedType = RoomType.classroom;
+    bool isLoading = false;
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           title: Text('Create New Room'),
@@ -243,76 +245,117 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Room Name
                 TextField(
                   controller: nameController,
+                  readOnly: isLoading,
                   decoration: InputDecoration(
-                    labelText: 'Room Name',
-                    hintText: 'e.g., Lab 101',
+                    labelText: 'Room Name *',
+                    hintText: 'e.g., Lab 101 or Conference Room A',
+                    helperText: 'Max 255 characters',
+                    border: OutlineInputBorder(),
                   ),
+                  maxLength: 255,
+                  onChanged: (value) => setState(() {}),
                 ),
                 SizedBox(height: 16),
+                
+                // Building
                 TextField(
                   controller: buildingController,
+                  readOnly: isLoading,
                   decoration: InputDecoration(
-                    labelText: 'Building',
-                    hintText: 'e.g., Science Building',
+                    labelText: 'Building *',
+                    hintText: 'e.g., Science Building, Engineering Block',
+                    border: OutlineInputBorder(),
                   ),
+                  onChanged: (value) => setState(() {}),
                 ),
                 SizedBox(height: 16),
+                
+                // Room Number
                 TextField(
                   controller: roomNumberController,
+                  readOnly: isLoading,
                   decoration: InputDecoration(
-                    labelText: 'Room Number',
-                    hintText: 'e.g., 101',
+                    labelText: 'Room Number *',
+                    hintText: 'e.g., 101, A-205, Lab-03',
+                    helperText: 'Letters, numbers, hyphens and spaces only',
+                    border: OutlineInputBorder(),
                   ),
+                  onChanged: (value) => setState(() {}),
                 ),
                 SizedBox(height: 16),
+                
+                // Capacity
                 TextField(
                   controller: capacityController,
-                  decoration: InputDecoration(
-                    labelText: 'Capacity',
-                    hintText: 'e.g., 30',
-                  ),
+                  readOnly: isLoading,
                   keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Capacity *',
+                    hintText: 'e.g., 30, 50, 100',
+                    helperText: 'Must be a positive number',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) => setState(() {}),
                 ),
                 SizedBox(height: 16),
+                
+                // Room Type
                 DropdownButtonFormField<RoomType>(
                   value: selectedType,
                   decoration: InputDecoration(
-                    labelText: 'Room Type',
+                    labelText: 'Room Type *',
+                    border: OutlineInputBorder(),
                   ),
                   items: [
-                    DropdownMenuItem(
-                      value: RoomType.classroom,
-                      child: Text('Classroom'),
-                    ),
-                    DropdownMenuItem(
-                      value: RoomType.lab,
-                      child: Text('Laboratory'),
-                    ),
-                    DropdownMenuItem(
-                      value: RoomType.audioVisual,
-                      child: Text('Audio/Visual'),
-                    ),
-                    DropdownMenuItem(
-                      value: RoomType.other,
-                      child: Text('Other'),
-                    ),
+                    DropdownMenuItem(value: RoomType.classroom, child: Text('Classroom')),
+                    DropdownMenuItem(value: RoomType.lab, child: Text('Laboratory')),
+                    DropdownMenuItem(value: RoomType.audioVisual, child: Text('Audio/Visual')),
+                    DropdownMenuItem(value: RoomType.other, child: Text('Other')),
                   ],
-                  onChanged: (value) {
+                  onChanged: isLoading ? null : (value) {
                     if (value != null) {
-                      setState(() {
-                        selectedType = value;
-                      });
+                      setState(() => selectedType = value);
                     }
                   },
                 ),
+                SizedBox(height: 16),
+                
+                // Loading/Error display
+                if (isLoading)
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: CircularProgressIndicator(),
+                  )
+                else if (_roomsProvider.errorMessage != null)
+                  Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade100,
+                      border: Border.all(color: Colors.red),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error, color: Colors.red),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _roomsProvider.errorMessage!,
+                            style: TextStyle(color: Colors.red.shade900, fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
           actions: [
             TextButton(
-              onPressed: () {
+              onPressed: isLoading ? null : () {
                 nameController.dispose();
                 buildingController.dispose();
                 roomNumberController.dispose();
@@ -322,42 +365,92 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () async {
-                if (nameController.text.isNotEmpty &&
-                    buildingController.text.isNotEmpty &&
-                    roomNumberController.text.isNotEmpty &&
-                    capacityController.text.isNotEmpty) {
-                  await _roomsProvider.createRoom(
-                    {
-                      'description': nameController.text,
-                      'building': buildingController.text,
-                      'room_number': roomNumberController.text,
-                      'capacity': int.tryParse(capacityController.text) ?? 0,
-                      'room_type': selectedType.toString().split('.').last,
-                    },
+              onPressed: isLoading ? null : () async {
+                // Client-side validation
+                if (nameController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('❌ Room name is required'), backgroundColor: Colors.red),
                   );
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Room created successfully!')),
-                    );
-                  }
+                  return;
+                }
+
+                if (buildingController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('❌ Building is required'), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
+
+                if (roomNumberController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('❌ Room number is required'), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
+
+                if (capacityController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('❌ Capacity is required'), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
+
+                final capacity = int.tryParse(capacityController.text);
+                if (capacity == null || capacity <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('❌ Capacity must be > 0'), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
+
+                if (!RegExp(r'^[a-zA-Z0-9\-\s]+$').hasMatch(roomNumberController.text)) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('❌ Invalid room number format'), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
+
+                // Show loading and create room
+                setState(() => isLoading = true);
+                
+                final success = await _roomsProvider.createRoom({
+                  'description': nameController.text.trim(),
+                  'building': buildingController.text.trim(),
+                  'room_number': roomNumberController.text.trim(),
+                  'capacity': capacity,
+                  'room_type': selectedType.toString().split('.').last,
+                });
+
+                if (!context.mounted) return;
+
+                if (success) {
                   nameController.dispose();
                   buildingController.dispose();
                   roomNumberController.dispose();
                   capacityController.dispose();
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    _applyFilters();
-                  }
-                } else {
+                  
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Please fill all fields')),
+                    SnackBar(
+                      content: Text('✅ Room created successfully!'),
+                      backgroundColor: Colors.green,
+                      duration: Duration(seconds: 2),
+                    ),
                   );
-              }
-            },
-            child: Text('Create'),
-          ),
-        ],
+                  
+                  Navigator.pop(context);
+                  _applyFilters();
+                } else {
+                  setState(() => isLoading = false);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isLoading ? Colors.grey : null,
+              ),
+              child: isLoading
+                  ? SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)))
+                  : Text('Create Room'),
+            ),
+          ],
         ),
       ),
     );
@@ -459,32 +552,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
         ],
       ),
-      body: Column(
-        children: [
-          // Search field
-          Padding(
-            padding: EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                labelText: 'Search rooms...',
-                prefixIcon: Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          _applyFilters();
-                        },
-                      )
-                    : null,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 1400),
+          child: Column(
+            children: [
+              // Search field
+              Padding(
+                padding: EdgeInsets.all(16),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    labelText: 'Search rooms...',
+                    prefixIcon: Icon(Icons.search),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              _applyFilters();
+                            },
+                          )
+                        : null,
+                  ),
+                  onChanged: (_) => _applyFilters(),
+                ),
               ),
-              onChanged: (_) => _applyFilters(),
-            ),
-          ),
 
-          // Filter section
-          Padding(
+              // Filter section
+              Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -572,6 +668,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
           ),
         ],
+          ),
+        ),
       ),
     );
   }
