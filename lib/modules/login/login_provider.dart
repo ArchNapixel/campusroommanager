@@ -16,6 +16,7 @@ class LoginProvider with ChangeNotifier {
   // Getters
   UserRole? get currentUserRole => _currentUserRole;
   User? get currentUser => _currentUser;
+  String? get currentUserId => _currentUser?.id;
   bool get isAuthenticated => _isAuthenticated;
   String? get errorMessage => _errorMessage;
   bool get isLoading => _isLoading;

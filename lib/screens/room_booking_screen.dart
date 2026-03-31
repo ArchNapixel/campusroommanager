@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:provider/provider.dart';
 import '../core/models/room_model.dart';
 import '../core/services/database_service.dart';
 import '../core/theme/app_theme.dart';
+import '../core/utilities/booking_diagnostics.dart';
 import '../modules/bookings/bookings_provider.dart';
+import '../modules/login/login_barrel.dart';
 
 /// Room booking screen with calendar and time slot selection
 class RoomBookingScreen extends StatefulWidget {
@@ -23,7 +26,6 @@ class _RoomBookingScreenState extends State<RoomBookingScreen> {
   DateTime? _focusedDate;
   late BookingsProvider _bookingsProvider;
   final _purposeController = TextEditingController();
-  final _occupantsController = TextEditingController();
 
   // Time slots: 8 AM to 8 PM in 2-hour intervals
   static const List<String> timeSlots = [
@@ -94,12 +96,10 @@ class _RoomBookingScreenState extends State<RoomBookingScreen> {
   }
 
   void _showBookingConfirmation() {
-    if (_selectedTimeSlot == null ||
-        _purposeController.text.isEmpty ||
-        _occupantsController.text.isEmpty) {
+    if (_selectedTimeSlot == null || _purposeController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Please select a time slot and fill all details'),
+          content: Text('Please select a time slot and enter a purpose'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -140,8 +140,6 @@ class _RoomBookingScreenState extends State<RoomBookingScreen> {
             Text('Time: $_selectedTimeSlot'),
             SizedBox(height: 8),
             Text('Purpose: ${_purposeController.text}'),
-            SizedBox(height: 8),
-            Text('Expected Occupants: ${_occupantsController.text}'),
           ],
         ),
         actions: [
@@ -162,46 +160,254 @@ class _RoomBookingScreenState extends State<RoomBookingScreen> {
   }
 
   Future<void> _createBooking(DateTime startTime, DateTime endTime) async {
-    // TODO: Get current user ID from auth provider
-    const userId = 'current_user';
-    
-    final success = await _bookingsProvider.createBooking(
-      roomId: widget.room.id,
-      userId: userId,
-      startTime: startTime,
-      endTime: endTime,
-      purpose: _purposeController.text.isNotEmpty 
-        ? _purposeController.text 
-        : 'Room Booking',
-    );
+    try {
+      // Get current user from LoginProvider
+      final loginProvider = context.read<LoginProvider>();
+      final userId = loginProvider.currentUserId;
+      
+      // Validate user ID
+      if (userId == null || userId.isEmpty) {
+        if (mounted) {
+          _showErrorDialog(
+            title: 'Authentication Error',
+            message: 'Your session has expired. Please log in again.',
+            details: 'User ID is not available. You may need to restart the app.',
+          );
+        }
+        return;
+      }
 
-    if (mounted) {
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Booking created successfully')),
-        );
-        Navigator.pop(context);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_bookingsProvider.errorMessage ?? 'Failed to create booking')),
+
+
+      print('🔄 [RoomBookingScreen] Attempting to create booking...');
+      print('   User ID: $userId');
+      print('   Room ID: ${widget.room.id}');
+
+      final success = await _bookingsProvider.createBooking(
+        roomId: widget.room.id,
+        userId: userId,
+        startTime: startTime,
+        endTime: endTime,
+        purpose: _purposeController.text.isNotEmpty 
+          ? _purposeController.text 
+          : 'Room Booking',
+      );
+
+      if (mounted) {
+        if (success) {
+          print('✅ [RoomBookingScreen] Booking created successfully');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Booking created successfully!'),
+              backgroundColor: AppColors.success,
+              duration: Duration(seconds: 2),
+            ),
+          );
+          // Navigate back to dashboard
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        } else {
+          print('❌ [RoomBookingScreen] Booking failed: ${_bookingsProvider.errorMessage}');
+          _showErrorDialog(
+            title: 'Booking Failed',
+            message: _bookingsProvider.errorMessage ?? 'An unexpected error occurred.',
+            showDetails: true,
+            startTime: startTime,
+            endTime: endTime,
+          );
+        }
+      }
+    } catch (e) {
+      print('❌ [RoomBookingScreen] Unexpected error: $e');
+      if (mounted) {
+        _showErrorDialog(
+          title: 'Unexpected Error',
+          message: 'An unexpected error occurred while creating the booking.',
+          details: e.toString(),
         );
       }
     }
+  }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Room booked successfully!'),
-        backgroundColor: AppColors.success,
+  /// Show detailed error dialog with technical details
+  void _showErrorDialog({
+    required String title,
+    required String message,
+    String? details,
+    bool showDetails = false,
+    DateTime? startTime,
+    DateTime? endTime,
+  }) {
+    final loginProvider = context.read<LoginProvider>();
+    
+    // Log diagnostics to console
+    if (startTime != null && endTime != null) {
+      BookingDiagnostics.printReport(
+        userRole: loginProvider.currentUserRole?.toString() ?? 'unknown',
+        userId: loginProvider.currentUserId,
+        errorMessage: message,
+        roomId: widget.room.id,
+        startTime: startTime,
+        endTime: endTime,
+        purpose: _purposeController.text,
+      );
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.error_outline, color: AppColors.error, size: 24),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(color: AppColors.error),
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Main error message
+              Text(
+                message,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  height: 1.5,
+                ),
+              ),
+              
+              // Technical details
+              if ((details != null || showDetails) && _bookingsProvider.errorMessage != null) ...[
+                SizedBox(height: 16),
+                Divider(height: 1),
+                SizedBox(height: 12),
+                Text(
+                  'Technical Details:',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondaryBackground,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: AppColors.borderColor),
+                  ),
+                  child: Text(
+                    details ?? _bookingsProvider.errorMessage ?? 'No details available',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.mutedText,
+                      fontFamily: 'monospace',
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+
+              // Helpful suggestions
+              SizedBox(height: 16),
+              Divider(height: 1),
+              SizedBox(height: 12),
+              Text(
+                'What you can try:',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 8),
+              ..._buildSuggestedActions(message),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Close'),
+          ),
+          if (showDetails && _bookingsProvider.errorMessage != null)
+            TextButton(
+              onPressed: () {
+                // Copy error to clipboard
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error details copied to clipboard')),
+                );
+                Navigator.pop(context);
+              },
+              child: Text('More Info'),
+            ),
+        ],
       ),
     );
+  }
 
-    Navigator.pop(context);
+  /// Build suggested actions based on error message
+  List<Widget> _buildSuggestedActions(String errorMessage) {
+    final msg = errorMessage.toLowerCase();
+    final suggestions = <String>[];
+
+    if (msg.contains('user') || msg.contains('session') || msg.contains('authenticated')) {
+      suggestions.addAll([
+        '• Log out and log in again',
+        '• Check your internet connection',
+        '• Restart the application',
+      ]);
+    } else if (msg.contains('permission')) {
+      suggestions.addAll([
+        '• Contact your administrator',
+        '• Try booking a different room',
+        '• Verify your account is active',
+      ]);
+    } else if (msg.contains('not available') || msg.contains('booked')) {
+      suggestions.addAll([
+        '• Select a different time slot',
+        '• Check available hours displayed',
+        '• Try booking on a different date',
+      ]);
+    } else if (msg.contains('network') || msg.contains('connection')) {
+      suggestions.addAll([
+        '• Check your internet connection',
+        '• Try again in a few moments',
+        '• If problem persists, contact support',
+      ]);
+    } else if (msg.contains('duration') || msg.contains('time')) {
+      suggestions.addAll([
+        '• Verify booking duration (30 min - 8 hours)',
+        '• Check start/end times are correct',
+        '• Try a different time slot',
+      ]);
+    } else {
+      suggestions.addAll([
+        '• Review the error message above',
+        '• Verify all booking details are correct',
+        '• Try again in a few moments',
+      ]);
+    }
+
+    return suggestions.map((suggestion) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: 8),
+        child: Text(
+          suggestion,
+          style: TextStyle(
+            fontSize: 13,
+            color: AppColors.bodyText,
+            height: 1.4,
+          ),
+        ),
+      );
+    }).toList();
   }
 
   @override
   void dispose() {
     _purposeController.dispose();
-    _occupantsController.dispose();
     super.dispose();
   }
 
@@ -402,16 +608,6 @@ class _RoomBookingScreenState extends State<RoomBookingScreen> {
                   hintText: 'e.g., Lab Session, Lecture, Meeting',
                   border: OutlineInputBorder(),
                 ),
-              ),
-              SizedBox(height: 12),
-              TextField(
-                controller: _occupantsController,
-                decoration: InputDecoration(
-                  labelText: 'Expected Occupants',
-                  hintText: 'Number of people',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
               ),
               SizedBox(height: 24),
 

@@ -28,7 +28,7 @@ class SchedulesProvider with ChangeNotifier {
               roomId: booking.roomId,
               bookingId: booking.id,
               date: booking.startTime,
-              notes: booking.notes,
+              notes: booking.description,
             ))
         .toList();
 

@@ -159,7 +159,7 @@ class _BookingCancellationDialogState extends State<BookingCancellationDialog> {
                       SizedBox(height: 8),
                       _DetailRow(
                         label: 'Purpose',
-                        value: widget.booking.purpose,
+                        value: widget.booking.title,
                       ),
                       SizedBox(height: 8),
                       _DetailRow(

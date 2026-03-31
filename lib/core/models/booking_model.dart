@@ -6,13 +6,12 @@ class Booking {
   final String userId;
   final DateTime startTime;
   final DateTime endTime;
-  final String purpose;
+  final String title;
+  final String? description;
   final BookingStatus status;
   final int expectedOccupants;
-  final String? notes;
   final DateTime createdAt;
-  final DateTime? cancelledAt;
-  final String? cancellationReason;
+  final DateTime? updatedAt;
 
   Booking({
     required this.id,
@@ -20,13 +19,12 @@ class Booking {
     required this.userId,
     required this.startTime,
     required this.endTime,
-    required this.purpose,
+    required this.title,
+    this.description,
     required this.status,
     required this.expectedOccupants,
-    this.notes,
     required this.createdAt,
-    this.cancelledAt,
-    this.cancellationReason,
+    this.updatedAt,
   });
 
   // Calculate duration in minutes
@@ -45,13 +43,12 @@ class Booking {
     String? userId,
     DateTime? startTime,
     DateTime? endTime,
-    String? purpose,
+    String? title,
+    String? description,
     BookingStatus? status,
     int? expectedOccupants,
-    String? notes,
     DateTime? createdAt,
-    DateTime? cancelledAt,
-    String? cancellationReason,
+    DateTime? updatedAt,
   }) {
     return Booking(
       id: id ?? this.id,
@@ -59,13 +56,12 @@ class Booking {
       userId: userId ?? this.userId,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
-      purpose: purpose ?? this.purpose,
+      title: title ?? this.title,
+      description: description ?? this.description,
       status: status ?? this.status,
       expectedOccupants: expectedOccupants ?? this.expectedOccupants,
-      notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
-      cancelledAt: cancelledAt ?? this.cancelledAt,
-      cancellationReason: cancellationReason ?? this.cancellationReason,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 

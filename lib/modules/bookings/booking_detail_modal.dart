@@ -83,7 +83,7 @@ class BookingDetailModal extends StatelessWidget {
                     _statusLabel(booking.status),
                     valueColor: _getStatusColor(booking.status),
                   ),
-                  _buildDetailRow('Purpose', booking.purpose),
+                  _buildDetailRow('Purpose', booking.title),
                   _buildDetailRow('Expected Occupants', '${booking.expectedOccupants}'),
                 ],
               ),
@@ -105,7 +105,7 @@ class BookingDetailModal extends StatelessWidget {
               SizedBox(height: 16),
 
               // Additional notes
-              if (booking.notes != null && booking.notes!.isNotEmpty) ...[
+              if (booking.description != null && booking.description!.isNotEmpty) ...[
                 Text(
                   'Notes',
                   style: Theme.of(context).textTheme.titleMedium,
@@ -120,7 +120,7 @@ class BookingDetailModal extends StatelessWidget {
                     border: Border.all(color: AppColors.borderColor),
                   ),
                   child: Text(
-                    booking.notes!,
+                    booking.description!,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
@@ -128,8 +128,7 @@ class BookingDetailModal extends StatelessWidget {
               ],
 
               // Cancellation info
-              if (booking.status == BookingStatus.cancelled &&
-                  booking.cancellationReason != null) ...[
+              if (booking.status == BookingStatus.cancelled) ...[
                 Container(
                   width: double.infinity,
                   padding: EdgeInsets.all(12),
@@ -150,7 +149,7 @@ class BookingDetailModal extends StatelessWidget {
                       ),
                       SizedBox(height: 4),
                       Text(
-                        booking.cancellationReason!,
+                        'This booking has been cancelled.',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],

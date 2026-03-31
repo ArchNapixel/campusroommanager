@@ -69,7 +69,7 @@ class EventRenderer extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        booking.purpose,
+                        booking.title,
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
                       SizedBox(height: 4),

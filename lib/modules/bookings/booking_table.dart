@@ -54,7 +54,7 @@ class _BookingTableState extends State<BookingTable> {
       if (widget.searchQuery != null && widget.searchQuery!.isNotEmpty) {
         final query = widget.searchQuery!.toLowerCase();
         final room = widget.roomsMap[booking.roomId];
-        return booking.purpose.toLowerCase().contains(query) ||
+        return booking.title.toLowerCase().contains(query) ||
             (room?.name.toLowerCase().contains(query) ?? false) ||
             booking.id.toLowerCase().contains(query);
       }
@@ -109,7 +109,7 @@ class _BookingTableState extends State<BookingTable> {
                 return DataRow(
                   cells: [
                     DataCell(Text(room?.name ?? 'Unknown')),
-                    DataCell(Text(booking.purpose)),
+                    DataCell(Text(booking.title)),
                     DataCell(Text(DateFormat('MMM dd').format(booking.startTime))),
                     DataCell(
                       Text(
@@ -166,7 +166,7 @@ class _BookingTableState extends State<BookingTable> {
                           ),
                           SizedBox(height: 4),
                           Text(
-                            booking.purpose,
+                            booking.title,
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],

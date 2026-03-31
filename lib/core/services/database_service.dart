@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_service.dart';
+import 'booking_exception.dart';
 
 /// Service for all database operations (separate from authentication)
 class DatabaseService {
@@ -201,20 +202,87 @@ class DatabaseService {
     }
   }
 
-  /// Create booking
+  /// Create booking with comprehensive error handling and automatic schema detection
   static Future<Map<String, dynamic>> createBooking(Map<String, dynamic> bookingData) async {
     try {
-      print('📊 [DatabaseService] Creating booking');
+      print('📊 [DatabaseService] Creating booking with data:');
+      print('   - Room ID: ${bookingData['room_id']}');
+      print('   - User ID: ${bookingData['user_id']}');
+      print('   - Start: ${bookingData['start_time']}');
+      print('   - End: ${bookingData['end_time']}');
+      print('   - Title: ${bookingData['title']}');
+      
+      // Validate critical booking data before sending
+      _validateBookingData(bookingData);
+      
+      // Build insert data with correct schema fields
+      final insertData = {
+        'room_id': bookingData['room_id'],
+        'user_id': bookingData['user_id'],
+        'start_time': bookingData['start_time'],
+        'end_time': bookingData['end_time'],
+        'title': bookingData['title'],
+        if (bookingData.containsKey('description') && bookingData['description'] != null)
+          'description': bookingData['description'],
+        if (bookingData.containsKey('status') && bookingData['status'] != null)
+          'status': bookingData['status'],
+      };
+
+      print('   Sending fields: ${insertData.keys.toList()}');
+      
       final response = await _client
           .from('bookings')
-          .insert(bookingData)
+          .insert(insertData)
           .select()
           .single();
-      print('✅ [DatabaseService] Booking created');
+      print('✅ [DatabaseService] Booking created successfully with ID: ${response['id']}');
       return response;
     } catch (e) {
       print('❌ [DatabaseService] Error creating booking: $e');
-      rethrow;
+      throw BookingException.fromError(e);
+    }
+  }
+
+  /// Validate booking data to catch issues early
+  static void _validateBookingData(Map<String, dynamic> data) {
+    if (data['room_id'] == null || (data['room_id'] as String).isEmpty) {
+      throw BookingException(
+        code: 'INVALID_ROOM',
+        userMessage: 'Room ID is missing. Please select a room.',
+        technicalDetails: 'room_id is null or empty',
+      );
+    }
+    
+    if (data['user_id'] == null || (data['user_id'] as String).isEmpty) {
+      throw BookingException(
+        code: 'INVALID_USER',
+        userMessage: 'User ID is missing. Please log in again.',
+        technicalDetails: 'user_id is null or empty',
+      );
+    }
+    
+    if (data['start_time'] == null) {
+      throw BookingException(
+        code: 'INVALID_START_TIME',
+        userMessage: 'Start time is missing.',
+        technicalDetails: 'start_time is null',
+      );
+    }
+    
+    if (data['end_time'] == null) {
+      throw BookingException(
+        code: 'INVALID_END_TIME',
+        userMessage: 'End time is missing.',
+        technicalDetails: 'end_time is null',
+      );
+    }
+    
+    if (data['title'] == null || (data['title'] as String).isEmpty) {
+      throw BookingException(
+        code: 'INVALID_TITLE',
+        userMessage: 'Booking title is missing.',
+        technicalDetails: 'title is null or empty',
+      );
     }
   }
 

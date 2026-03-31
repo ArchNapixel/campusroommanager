@@ -11,9 +11,9 @@ class BookingFactory {
     required String userId,
     required DateTime startTime,
     required DateTime endTime,
-    required String purpose,
+    required String title,
+    String? description,
     int expectedOccupants = 1,
-    String? notes,
     String? id,
   }) {
     return Booking(
@@ -22,10 +22,10 @@ class BookingFactory {
       userId: userId,
       startTime: startTime,
       endTime: endTime,
-      purpose: purpose,
-      status: BookingStatus.pending,
+      title: title,
+      description: description,
+      status: BookingStatus.confirmed,
       expectedOccupants: expectedOccupants,
-      notes: notes,
       createdAt: DateTime.now(),
     );
   }
@@ -36,9 +36,9 @@ class BookingFactory {
     required String userId,
     required DateTime startTime,
     required DateTime endTime,
-    required String purpose,
+    required String title,
+    String? description,
     int expectedOccupants = 1,
-    String? notes,
     String? id,
   }) {
     return Booking(
@@ -47,10 +47,10 @@ class BookingFactory {
       userId: userId,
       startTime: startTime,
       endTime: endTime,
-      purpose: purpose,
+      title: title,
+      description: description,
       status: BookingStatus.confirmed,
       expectedOccupants: expectedOccupants,
-      notes: notes,
       createdAt: DateTime.now(),
     );
   }
@@ -61,9 +61,9 @@ class BookingFactory {
     required String userId,
     required DateTime startTime,
     required DateTime endTime,
-    required String purpose,
+    required String title,
+    String? description,
     int expectedOccupants = 1,
-    String? notes,
     String? id,
   }) {
     return Booking(
@@ -72,10 +72,10 @@ class BookingFactory {
       userId: userId,
       startTime: startTime,
       endTime: endTime,
-      purpose: purpose,
+      title: title,
+      description: description,
       status: BookingStatus.inProgress,
       expectedOccupants: expectedOccupants,
-      notes: notes,
       createdAt: DateTime.now(),
     );
   }
@@ -86,10 +86,9 @@ class BookingFactory {
     required String userId,
     required DateTime startTime,
     required DateTime endTime,
-    required String purpose,
-    required String cancellationReason,
+    required String title,
+    String? description,
     int expectedOccupants = 1,
-    String? notes,
     String? id,
   }) {
     return Booking(
@@ -98,13 +97,12 @@ class BookingFactory {
       userId: userId,
       startTime: startTime,
       endTime: endTime,
-      purpose: purpose,
+      title: title,
+      description: description,
       status: BookingStatus.cancelled,
       expectedOccupants: expectedOccupants,
-      notes: notes,
       createdAt: DateTime.now(),
-      cancelledAt: DateTime.now(),
-      cancellationReason: cancellationReason,
+      updatedAt: DateTime.now(),
     );
   }
 
@@ -114,14 +112,13 @@ class BookingFactory {
     required String userId,
     required DateTime startTime,
     required DateTime endTime,
-    required String purpose,
+    required String title,
+    String? description,
     required BookingStatus status,
     int expectedOccupants = 1,
-    String? notes,
     String? id,
     DateTime? createdAt,
-    DateTime? cancelledAt,
-    String? cancellationReason,
+    DateTime? updatedAt,
   }) {
     return Booking(
       id: id ?? _uuid.v4(),
@@ -129,13 +126,12 @@ class BookingFactory {
       userId: userId,
       startTime: startTime,
       endTime: endTime,
-      purpose: purpose,
+      title: title,
+      description: description,
       status: status,
       expectedOccupants: expectedOccupants,
-      notes: notes,
       createdAt: createdAt ?? DateTime.now(),
-      cancelledAt: cancelledAt,
-      cancellationReason: cancellationReason,
+      updatedAt: updatedAt,
     );
   }
 }

@@ -7,13 +7,12 @@ class BookingBuilder {
   late String _userId;
   late DateTime _startTime;
   late DateTime _endTime;
-  late String _purpose;
-  BookingStatus _status = BookingStatus.pending;
+  late String _title;
+  BookingStatus _status = BookingStatus.confirmed;
   int _expectedOccupants = 1;
-  String? _notes;
+  String? _description;
   DateTime? _createdAt;
-  DateTime? _cancelledAt;
-  String? _cancellationReason;
+  DateTime? _updatedAt;
 
   BookingBuilder();
 
@@ -48,8 +47,19 @@ class BookingBuilder {
     return this;
   }
 
+  BookingBuilder withTitle(String title) {
+    _title = title;
+    return this;
+  }
+
+  // Keep withPurpose for backwards compatibility
   BookingBuilder withPurpose(String purpose) {
-    _purpose = purpose;
+    _title = purpose;
+    return this;
+  }
+
+  BookingBuilder withDescription(String description) {
+    _description = description;
     return this;
   }
 
@@ -64,7 +74,7 @@ class BookingBuilder {
   }
 
   BookingBuilder withNotes(String notes) {
-    _notes = notes;
+    _description = notes;
     return this;
   }
 
@@ -73,17 +83,21 @@ class BookingBuilder {
     return this;
   }
 
-  BookingBuilder withCancellation(String reason) {
+  BookingBuilder withUpdatedAt(DateTime updatedAt) {
+    _updatedAt = updatedAt;
+    return this;
+  }
+
+  BookingBuilder withCancellation() {
     _status = BookingStatus.cancelled;
-    _cancelledAt = DateTime.now();
-    _cancellationReason = reason;
+    _updatedAt = DateTime.now();
     return this;
   }
 
   /// Build the Booking object
   Booking build() {
-    if (_roomId.isEmpty || _userId.isEmpty || _purpose.isEmpty) {
-      throw ArgumentError('Required fields: roomId, userId, purpose');
+    if (_roomId.isEmpty || _userId.isEmpty || _title.isEmpty) {
+      throw ArgumentError('Required fields: roomId, userId, title');
     }
 
     return Booking(
@@ -92,13 +106,12 @@ class BookingBuilder {
       userId: _userId,
       startTime: _startTime,
       endTime: _endTime,
-      purpose: _purpose,
+      title: _title,
+      description: _description,
       status: _status,
       expectedOccupants: _expectedOccupants,
-      notes: _notes,
       createdAt: _createdAt ?? DateTime.now(),
-      cancelledAt: _cancelledAt,
-      cancellationReason: _cancellationReason,
+      updatedAt: _updatedAt,
     );
   }
 }

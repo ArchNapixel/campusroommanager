@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/services/database_service.dart';
+import '../../core/services/booking_exception.dart';
 import '../../core/models/booking_model.dart';
 
 /// Provider for managing bookings
@@ -36,7 +37,7 @@ class BookingsProvider with ChangeNotifier {
         case 'cancelled':
           return BookingStatus.cancelled;
         default:
-          return BookingStatus.pending;
+          return BookingStatus.confirmed;
       }
     }
 
@@ -46,13 +47,12 @@ class BookingsProvider with ChangeNotifier {
       userId: data['user_id'] ?? '',
       startTime: DateTime.parse(data['start_time'] ?? DateTime.now().toIso8601String()),
       endTime: DateTime.parse(data['end_time'] ?? DateTime.now().toIso8601String()),
-      purpose: data['purpose'] ?? '',
-      status: statusFromString(data['status'] ?? 'pending'),
-      expectedOccupants: data['expected_occupants'] ?? 0,
-      notes: data['notes'],
+      title: data['title'] ?? '',
+      description: data['description'],
+      status: statusFromString(data['status'] ?? 'confirmed'),
+      expectedOccupants: 1,
       createdAt: DateTime.parse(data['created_at'] ?? DateTime.now().toIso8601String()),
-      cancelledAt: data['cancelled_at'] != null ? DateTime.parse(data['cancelled_at']) : null,
-      cancellationReason: data['cancellation_reason'],
+      updatedAt: data['updated_at'] != null ? DateTime.parse(data['updated_at']) : null,
     );
   }
 
@@ -92,7 +92,6 @@ class BookingsProvider with ChangeNotifier {
     }
   }
 
-  /// Create booking
   /// Create booking with comprehensive error handling and validation
   Future<bool> createBooking({
     required String roomId,
@@ -106,77 +105,92 @@ class BookingsProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      print('📱 [BookingsProvider] Creating booking for room: $roomId');
+      print('📱 [BookingsProvider] Creating booking');
+      print('   Room: $roomId | User: $userId');
+      print('   Start: ${startTime.toString()} | End: ${endTime.toString()}');
 
-      // ============ CLIENT-SIDE VALIDATION ============
+      // ============ CRITICAL VALIDATION ============
       
-      // 1. Validate time range
-      if (startTime.isAfter(endTime)) {
-        _errorMessage = 'Start time must be before end time';
-        print('❌ [BookingsProvider] Validation error: ${_errorMessage}');
-        _isLoading = false;
-        notifyListeners();
-        return false;
+      // 1. Validate IDs
+      if (roomId.isEmpty) {
+        throw BookingException(
+          code: 'INVALID_ROOM',
+          userMessage: 'Please select a room before booking.',
+          technicalDetails: 'Room ID is empty',
+        );
+      }
+      
+      if (userId.isEmpty || userId == 'current_user') {
+        throw BookingException(
+          code: 'INVALID_USER',
+          userMessage: 'User information is missing. Please log in again.',
+          technicalDetails: 'User ID is empty or placeholder: $userId',
+        );
       }
 
-      // 2. Check minimum booking duration
+      // 2. Validate time range
+      if (startTime.isAfter(endTime)) {
+        throw BookingException(
+          code: 'INVALID_TIME_RANGE',
+          userMessage: 'Start time must be before end time.',
+          technicalDetails: 'Start: $startTime, End: $endTime',
+        );
+      }
+
+      // 3. Check minimum booking duration
       final duration = endTime.difference(startTime);
       if (duration.inMinutes < 30) {
-        _errorMessage = 'Minimum booking duration is 30 minutes';
-        print('❌ [BookingsProvider] Validation error: ${_errorMessage}');
-        _isLoading = false;
-        notifyListeners();
-        return false;
+        throw BookingException(
+          code: 'DURATION_TOO_SHORT',
+          userMessage: 'Booking must be at least 30 minutes long.',
+          technicalDetails: 'Duration: ${duration.inMinutes} minutes',
+        );
       }
 
-      // 3. Check maximum booking duration
+      // 4. Check maximum booking duration
       if (duration.inHours > 8) {
-        _errorMessage = 'Maximum booking duration is 8 hours';
-        print('❌ [BookingsProvider] Validation error: ${_errorMessage}');
-        _isLoading = false;
-        notifyListeners();
-        return false;
+        throw BookingException(
+          code: 'DURATION_TOO_LONG',
+          userMessage: 'Booking cannot exceed 8 hours.',
+          technicalDetails: 'Duration: ${duration.inHours} hours',
+        );
       }
 
-      // 4. Don't allow bookings in the past
+      // 5. Don't allow bookings in the past
       if (startTime.isBefore(DateTime.now())) {
-        _errorMessage = 'Cannot create bookings in the past';
-        print('❌ [BookingsProvider] Validation error: ${_errorMessage}');
-        _isLoading = false;
-        notifyListeners();
-        return false;
+        throw BookingException(
+          code: 'BOOKING_IN_PAST',
+          userMessage: 'Cannot create bookings in the past.',
+          technicalDetails: 'Start time: ${startTime.toString()}',
+        );
       }
 
-      // 5. Validate purpose
-      final finalPurpose = purpose?.trim() ?? 'Room reservation';
+      // 6. Validate and normalize purpose
+      final finalPurpose = (purpose?.trim() ?? '').isNotEmpty 
+        ? purpose!.trim() 
+        : 'Room reservation';
+        
       if (finalPurpose.isEmpty) {
-        _errorMessage = 'Booking purpose cannot be empty';
-        print('❌ [BookingsProvider] Validation error: ${_errorMessage}');
-        _isLoading = false;
-        notifyListeners();
-        return false;
+        throw BookingException(
+          code: 'INVALID_PURPOSE',
+          userMessage: 'Please provide a purpose for the booking.',
+          technicalDetails: 'Purpose is empty',
+        );
       }
 
       if (finalPurpose.length > 500) {
-        _errorMessage = 'Booking purpose must be less than 500 characters';
-        print('❌ [BookingsProvider] Validation error: ${_errorMessage}');
-        _isLoading = false;
-        notifyListeners();
-        return false;
+        throw BookingException(
+          code: 'PURPOSE_TOO_LONG',
+          userMessage: 'Booking purpose must be less than 500 characters.',
+          technicalDetails: 'Purpose length: ${finalPurpose.length}',
+        );
       }
 
-      // 6. Validate room and user IDs
-      if (roomId.isEmpty || userId.isEmpty) {
-        _errorMessage = 'Invalid room or user selection';
-        print('❌ [BookingsProvider] Validation error: ${_errorMessage}');
-        _isLoading = false;
-        notifyListeners();
-        return false;
-      }
+
 
       // ============ CONFLICT DETECTION ============
       
-      // Check availability
+      print('📱 [BookingsProvider] Checking room availability...');
       final available = await DatabaseService.isRoomAvailable(
         roomId,
         startTime,
@@ -201,17 +215,25 @@ class BookingsProvider with ChangeNotifier {
         if (conflicting.isNotEmpty) {
           final s = DateTime.parse(conflicting['start_time']);
           final e = DateTime.parse(conflicting['end_time']);
-          _errorMessage = 'Room is booked ${s.hour}:${s.minute.toString().padLeft(2, '0')}-${e.hour}:${e.minute.toString().padLeft(2, '0')}';
+          final formattedStart = '${s.hour.toString().padLeft(2, '0')}:${s.minute.toString().padLeft(2, '0')}';
+          final formattedEnd = '${e.hour.toString().padLeft(2, '0')}:${e.minute.toString().padLeft(2, '0')}';
+          throw BookingException(
+            code: 'ROOM_NOT_AVAILABLE',
+            userMessage: 'Room is already booked from $formattedStart to $formattedEnd.',
+            technicalDetails: 'Conflict with booking: ${conflicting['id']}',
+          );
         } else {
-          _errorMessage = 'Room is not available for selected time';
+          throw BookingException(
+            code: 'ROOM_NOT_AVAILABLE',
+            userMessage: 'Room is not available for the selected time.',
+            technicalDetails: 'Time slot unavailable: ${startTime.toString()} - ${endTime.toString()}',
+          );
         }
-        print('❌ [BookingsProvider] Conflict: ${_errorMessage}');
-        _isLoading = false;
-        notifyListeners();
-        return false;
       }
 
-      // Check daily booking limit
+      // ============ USER BOOKING LIMITS ============
+      
+      print('📱 [BookingsProvider] Checking daily booking limit...');
       final bookingsToday = _userBookings.where((b) {
         final bStart = DateTime.parse(b['start_time']);
         return bStart.year == startTime.year &&
@@ -221,22 +243,23 @@ class BookingsProvider with ChangeNotifier {
       }).length;
 
       if (bookingsToday >= 5) {
-        _errorMessage = 'Maximum 5 bookings per day reached';
-        print('❌ [BookingsProvider] Daily limit: ${_errorMessage}');
-        _isLoading = false;
-        notifyListeners();
-        return false;
+        throw BookingException(
+          code: 'DAILY_LIMIT_EXCEEDED',
+          userMessage: 'You have reached the maximum of 5 bookings per day.',
+          technicalDetails: 'Bookings today: $bookingsToday',
+        );
       }
 
       // ============ DATABASE CREATION ============
       
+      print('📱 [BookingsProvider] Creating booking in database...');
       await DatabaseService.createBooking({
         'room_id': roomId,
         'user_id': userId,
         'start_time': startTime.toIso8601String(),
         'end_time': endTime.toIso8601String(),
-        'purpose': finalPurpose,
-        'status': 'pending',
+        'title': finalPurpose,
+        'status': 'confirmed',
       });
 
       print('✅ [BookingsProvider] Booking created successfully');
@@ -245,18 +268,23 @@ class BookingsProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return true;
-    } catch (e) {
-      final errorStr = e.toString();
-      if (errorStr.contains('permission')) {
-        _errorMessage = 'You do not have permission to create bookings';
-      } else if (errorStr.contains('unique')) {
-        _errorMessage = 'Booking already exists for this time';
-      } else if (errorStr.contains('connection') || errorStr.contains('network')) {
-        _errorMessage = 'Network error: Please check connection';
-      } else {
-        _errorMessage = 'Booking failed: Please try again';
+    } on BookingException catch (e) {
+      _errorMessage = e.userMessage;
+      print('❌ [BookingsProvider] Booking error: ${e.code}');
+      print('   Message: ${e.userMessage}');
+      if (e.technicalDetails != null) {
+        print('   Details: ${e.technicalDetails}');
       }
-      print('❌ [BookingsProvider] Error: $e');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      // Catch any other errors and convert to BookingException
+      final bookingError = BookingException.fromError(e);
+      _errorMessage = bookingError.userMessage;
+      print('❌ [BookingsProvider] Unexpected error: ${bookingError.code}');
+      print('   Message: ${bookingError.userMessage}');
+      print('   Original: $e');
       _isLoading = false;
       notifyListeners();
       return false;
@@ -644,7 +672,7 @@ class BookingsProvider with ChangeNotifier {
       final query = searchPurpose.toLowerCase();
       results = results
           .where((b) =>
-              (b['purpose'] ?? '').toString().toLowerCase().contains(query))
+              (b['title'] ?? '').toString().toLowerCase().contains(query))
           .toList();
     }
 
@@ -710,7 +738,7 @@ class BookingsProvider with ChangeNotifier {
     final searchTerm = query.toLowerCase();
     return _userBookings
         .where((b) {
-          final purpose = (b['purpose'] ?? '').toString().toLowerCase();
+          final purpose = (b['title'] ?? '').toString().toLowerCase();
           return purpose.contains(searchTerm);
         })
         .toList()

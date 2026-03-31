@@ -37,7 +37,7 @@ class _BookingModificationDialogState
     super.initState();
     _startTime = widget.booking.startTime;
     _endTime = widget.booking.endTime;
-    _purposeController = TextEditingController(text: widget.booking.purpose);
+    _purposeController = TextEditingController(text: widget.booking.title);
   }
 
   @override
@@ -146,7 +146,7 @@ class _BookingModificationDialogState
           _startTime != widget.booking.startTime ||
           _endTime != widget.booking.endTime;
       final purposeChanged =
-          _purposeController.text.trim() != widget.booking.purpose;
+          _purposeController.text.trim() != widget.booking.title;
 
       if (!timeChanged && !purposeChanged) {
         ScaffoldMessenger.of(context).showSnackBar(
