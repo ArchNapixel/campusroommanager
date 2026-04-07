@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import '../../core/models/user_model.dart';
 import '../../core/services/supabase_service.dart';
 import '../../core/services/supabase_oauth_service.dart';
+import '../../core/services/auth_exception.dart' as app_auth;
 
 /// State provider for login/authentication
 class LoginProvider with ChangeNotifier {
@@ -21,6 +22,27 @@ class LoginProvider with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get isLoading => _isLoading;
   Map<String, String>? get googleSignUpData => _googleSignUpData;
+  bool get isDuplicateUsernameError => _errorMessage?.contains('already taken') ?? false;
+  bool get isDuplicateEmailError => _errorMessage?.contains('already exists') ?? false;
+
+  /// Check if a username is available
+  Future<bool> isUsernameAvailable(String username) async {
+    try {
+      print('📱 [LoginProvider] Checking username availability: $username');
+      final result = await SupabaseService.client
+          .from('users')
+          .select()
+          .eq('username', username)
+          .maybeSingle();
+      
+      final available = result == null;
+      print('${available ? '✅' : '❌'} [LoginProvider] Username "$username" ${available ? 'is available' : 'is taken'}');
+      return available;
+    } catch (e) {
+      print('⚠️  [LoginProvider] Error checking username: $e');
+      return true; // Assume available if check fails
+    }
+  }
 
   /// Login with admin credentials (username and password)
   Future<void> adminLogin(String username, String password) async {
@@ -166,6 +188,17 @@ class LoginProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      // Check if username is already taken BEFORE creating Supabase account
+      print('📱 [LoginProvider] Checking if username "$username" is available');
+      final usernameAvailable = await isUsernameAvailable(username);
+      if (!usernameAvailable) {
+        _errorMessage = 'The username "$username" is already taken. Please choose a different username.';
+        _isLoading = false;
+        notifyListeners();
+        print('❌ [LoginProvider] Duplicate username error: $_errorMessage');
+        return;
+      }
+
       final response = await SupabaseService.signUp(
         email: email,
         password: password,
@@ -188,6 +221,7 @@ class LoginProvider with ChangeNotifier {
               'username': username,
               'full_name': username,
               'role': role.toString().split('.').last, // 'student' or 'teacher'
+              'provider': 'email',  // Track that this user signed up via email
             });
             success = true;
             print('✅ [LoginProvider] User inserted into database on attempt ${retries + 1}');
@@ -216,7 +250,8 @@ class LoginProvider with ChangeNotifier {
         print('✅ [LoginProvider] signUp success!');
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      final authException = app_auth.AppAuthException.fromError(e);
+      _errorMessage = authException.userMessage;
       _isAuthenticated = false;
       print('❌ [LoginProvider] signUp error: $e');
     } finally {
@@ -301,6 +336,17 @@ class LoginProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      // Check if username is already taken BEFORE creating account
+      print('📱 [LoginProvider] Checking if username "$username" is available for Google signup');
+      final usernameAvailable = await isUsernameAvailable(username);
+      if (!usernameAvailable) {
+        _errorMessage = 'The username "$username" is already taken. Please choose a different username.';
+        _isLoading = false;
+        notifyListeners();
+        print('❌ [LoginProvider] Duplicate username error during Google signup: $_errorMessage');
+        return;
+      }
+
       final email = _googleSignUpData!['email']!;
       final displayName = _googleSignUpData!['display_name'];
       final photoUrl = _googleSignUpData!['photo_url'];
@@ -339,7 +385,8 @@ class LoginProvider with ChangeNotifier {
         throw Exception('Failed to authenticate user after signup');
       }
     } catch (e) {
-      _errorMessage = 'Google signup failed: $e';
+      final authException = app_auth.AppAuthException.fromError(e);
+      _errorMessage = authException.userMessage;
       _isAuthenticated = false;
       _googleSignUpData = null;
       print('❌ [LoginProvider] signUpWithGoogle error: $e');
@@ -371,6 +418,17 @@ class LoginProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      // Check if username is already taken BEFORE creating account
+      print('📱 [LoginProvider] Checking if username "$username" is available for direct email signup');
+      final usernameAvailable = await isUsernameAvailable(username);
+      if (!usernameAvailable) {
+        _errorMessage = 'The username "$username" is already taken. Please choose a different username.';
+        _isLoading = false;
+        notifyListeners();
+        print('❌ [LoginProvider] Duplicate username error during direct signup: $_errorMessage');
+        return;
+      }
+
       // Sign up user with Supabase Auth
       final response = await SupabaseService.signUp(
         email: email,
@@ -394,6 +452,7 @@ class LoginProvider with ChangeNotifier {
               'username': username,
               'full_name': username,
               'role': role.toString().split('.').last, // 'student' or 'teacher'
+              'provider': 'email',  // Track that this user signed up via email
             });
             success = true;
             print('✅ [LoginProvider] User inserted into database on attempt ${retries + 1}');
@@ -422,7 +481,8 @@ class LoginProvider with ChangeNotifier {
         print('✅ [LoginProvider] signUpWithEmailDirect success!');
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      final authException = app_auth.AppAuthException.fromError(e);
+      _errorMessage = authException.userMessage;
       _isAuthenticated = false;
       print('❌ [LoginProvider] signUpWithEmailDirect error: $e');
     } finally {

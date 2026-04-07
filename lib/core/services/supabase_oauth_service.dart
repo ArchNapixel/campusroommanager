@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
 import 'supabase_service.dart';
+import 'auth_exception.dart' as app_auth;
 
 /// Service to handle Supabase OAuth (Google Sign-In)
 class SupabaseOAuthService {
@@ -96,6 +97,26 @@ class SupabaseOAuthService {
       if (_currentGoogleUser == null) {
         throw Exception('No Google user found. Please sign in again.');
       }
+
+      // Check if username is available BEFORE creating Supabase account
+      print('📱 [SupabaseOAuthService] Checking if username "$username" is available');
+      try {
+        final existingUser = await SupabaseService.client
+            .from('users')
+            .select()
+            .eq('username', username)
+            .maybeSingle();
+        
+        if (existingUser != null) {
+          throw Exception('Username "$username" is already taken. Please choose a different username.');
+        }
+      } catch (e) {
+        if (e.toString().contains('already taken')) {
+          rethrow;
+        }
+        // If check fails, continue anyway to attempt signup
+        print('⚠️  [SupabaseOAuthService] Could not verify username uniqueness: $e');
+      }
       
       // Sign up with Supabase using email and password
       final response = await SupabaseService.signUp(
@@ -123,10 +144,19 @@ class SupabaseOAuthService {
             'full_name': displayName ?? username,
             'role': role,
             'profile_picture_url': photoUrl,
+            'provider': 'google',  // Track that this user signed up via Google
           });
           success = true;
           print('✅ [SupabaseOAuthService] User created in database on attempt ${retries + 1}');
         } catch (e) {
+          final errorStr = e.toString().toLowerCase();
+          
+          // Handle duplicate username error specifically
+          if (errorStr.contains('unique constraint') || errorStr.contains('duplicate') || errorStr.contains('already exists')) {
+            print('❌ [SupabaseOAuthService] Duplicate username error: $e');
+            throw Exception('Username "$username" is already taken. Please choose a different username.');
+          }
+          
           retries++;
           if (retries < maxRetries) {
             await Future.delayed(Duration(milliseconds: 100 * retries));
