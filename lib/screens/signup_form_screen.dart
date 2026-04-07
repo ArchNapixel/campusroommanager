@@ -33,14 +33,9 @@ class _SignUpFormScreenState extends State<SignUpFormScreen> {
 
     if (loginProvider.googleSignUpData != null) {
       // OAuth successful, navigate to credentials screen
-      final data = loginProvider.googleSignUpData!;
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => GoogleSignupCredentialsScreen(
-            userId: data['id']!,
-            googleEmail: data['email']!,
-            googleName: data['display_name']!,
-            googleAvatarUrl: data['photo_url'],
             onBackPressed: () {
               Navigator.of(context).pop();
               setState(() => _isLoading = false);

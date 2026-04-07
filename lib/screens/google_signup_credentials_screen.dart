@@ -6,18 +6,10 @@ import '../modules/login/login_provider.dart';
 
 /// Screen for collecting username and password after Google OAuth signup
 class GoogleSignupCredentialsScreen extends StatefulWidget {
-  final String userId;
-  final String googleEmail;
-  final String googleName;
-  final String? googleAvatarUrl;
   final VoidCallback onBackPressed;
 
   const GoogleSignupCredentialsScreen({
     Key? key,
-    required this.userId,
-    required this.googleEmail,
-    required this.googleName,
-    this.googleAvatarUrl,
     required this.onBackPressed,
   }) : super(key: key);
 
@@ -133,8 +125,6 @@ class _GoogleSignupCredentialsScreenState
     final loginProvider = context.read<LoginProvider>();
     
     await loginProvider.signUpWithGoogle(
-      userId: widget.userId,
-      googleEmail: widget.googleEmail,
       username: _usernameController.text,
       password: _passwordController.text,
       role: role,
@@ -207,7 +197,7 @@ class _GoogleSignupCredentialsScreenState
                   ),
                   SizedBox(height: 8),
                   Text(
-                    'Google: ${widget.googleName}',
+                    'Google: ${context.watch<LoginProvider>().googleSignUpData?['display_name'] ?? 'User'}',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.mutedText,
                         ),

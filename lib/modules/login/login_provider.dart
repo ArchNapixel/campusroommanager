@@ -225,7 +225,8 @@ class LoginProvider with ChangeNotifier {
     }
   }
 
-  /// Start Google sign-up flow using Supabase OAuth
+  /// Start Google sign-up flow using Supabase OAuth popup
+  /// This initiates Google Sign-In and prepares data for the signup form
   Future<void> startGoogleSignUpFlow() async {
     print('📱 [LoginProvider] startGoogleSignUpFlow started');
     _isLoading = true;
@@ -234,66 +235,35 @@ class LoginProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // Initiate OAuth sign-in (this will redirect to Google then back to your app)
+      // Initiate Google Sign-In popup (no Supabase auth yet)
       final success = await SupabaseOAuthService.signInWithGoogle();
       
       if (!success) {
-        _errorMessage = 'Failed to initiate Google Sign-In';
+        _errorMessage = 'Google Sign-In cancelled or failed';
         _isLoading = false;
         notifyListeners();
         return;
       }
 
-      print('✅ [LoginProvider] OAuth initiated, waiting for session...');
+      print('✅ [LoginProvider] Google Sign-In successful');
       
-      // Wait longer for the OAuth session to be established after redirect
-      for (int i = 0; i < 15; i++) {
-        await Future.delayed(Duration(milliseconds: 500));
-        
-        final authUser = SupabaseService.client.auth.currentUser;
-        if (authUser != null) {
-          print('✅ [LoginProvider] User authenticated after ${i * 500}ms: ${authUser.email}');
-          
-          // Check if user exists in database
-          final existingUser = await SupabaseOAuthService.getUserFromDatabase(authUser.id);
-          
-          if (existingUser != null) {
-            // User already exists, proceed to authenticated state
-            print('📱 [LoginProvider] User already exists in database');
-            _currentUserRole = UserRole.values.firstWhere(
-              (r) => r.toString().split('.').last == existingUser['role'],
-              orElse: () => UserRole.student,
-            );
-            _currentUser = User(
-              id: authUser.id,
-              email: authUser.email ?? '',
-              name: existingUser['full_name'] ?? 'User',
-              role: _currentUserRole!,
-              profilePictureUrl: existingUser['profile_picture_url'],
-              createdAt: DateTime.now(),
-            );
-            _isAuthenticated = true;
-          } else {
-            // User doesn't exist yet - need to collect username and role
-            print('📱 [LoginProvider] New user, storing data for credentials entry');
-            _googleSignUpData = {
-              'id': authUser.id,
-              'email': authUser.email ?? '',
-              'display_name': authUser.userMetadata?['full_name'] ?? 'User',
-              'photo_url': authUser.userMetadata?['avatar_url'] ?? '',
-            };
-          }
-
-          _errorMessage = null;
-          _isLoading = false;
-          notifyListeners();
-          return;
-        }
+      // Get Google user info (email, name, photo)
+      final googleUserInfo = SupabaseOAuthService.getGoogleUserInfo();
+      
+      if (googleUserInfo == null) {
+        _errorMessage = 'Failed to retrieve Google user info';
+        _isLoading = false;
+        notifyListeners();
+        return;
       }
+
+      // Store Google user info for the signup form to use
+      print('📱 [LoginProvider] Storing Google user data for signup form');
+      _googleSignUpData = googleUserInfo;
       
-      // If we get here, no session was found after retries
-      _errorMessage = 'Failed to establish session. Please try again.';
-      print('❌ [LoginProvider] No session found after retries');
+      _errorMessage = null;
+      _isLoading = false;
+      notifyListeners();
       
     } catch (e) {
       _errorMessage = 'Google Sign-In failed: $e';
@@ -306,8 +276,6 @@ class LoginProvider with ChangeNotifier {
 
   /// Complete Google sign-up by creating account with username and password
   Future<void> signUpWithGoogle({
-    required String userId,
-    required String googleEmail,
     required String username,
     required String password,
     required UserRole role,
@@ -321,62 +289,57 @@ class LoginProvider with ChangeNotifier {
       return;
     }
 
+    if (_googleSignUpData == null) {
+      _errorMessage = 'No Google sign-in data. Please try signing in again.';
+      print('❌ [LoginProvider] signUpWithGoogle error: Missing Google data');
+      notifyListeners();
+      return;
+    }
+
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final authUser = SupabaseService.client.auth.currentUser;
-      if (authUser == null || authUser.id != userId) {
-        throw Exception('User authentication mismatch. Please try signing up again.');
-      }
+      final email = _googleSignUpData!['email']!;
+      final displayName = _googleSignUpData!['display_name'];
+      final photoUrl = _googleSignUpData!['photo_url'];
 
-      print('📱 [LoginProvider] Found authenticated user: ${authUser.id}');
+      print('📱 [LoginProvider] Creating Google user with email: $email');
 
-      // Get Firebase user info from metadata
-      final displayName = authUser.userMetadata?['full_name'] ?? username;
-      final photoUrl = authUser.userMetadata?['avatar_url'];
-
-      // Set password for the user
-      try {
-        await SupabaseService.client.auth.updateUser(
-          UserAttributes(password: password),
-        );
-        print('✅ [LoginProvider] Password set for user');
-      } catch (e) {
-        print('⚠️  [LoginProvider] Password update warning: $e');
-      }
-
-      // Create user record in database
-      try {
-        await SupabaseOAuthService.createUserInDatabase(
-          userId: userId,
-          email: googleEmail,
-          username: username,
-          role: role.toString().split('.').last,
-          displayName: displayName,
-          photoUrl: photoUrl,
-        );
-      } catch (e) {
-        print('⚠️  [LoginProvider] User already exists or creation failed: $e');
-      }
-
-      // Set user data
-      _currentUserRole = role;
-      _currentUser = User(
-        id: userId,
-        email: googleEmail,
-        name: username,
-        role: role,
-        profilePictureUrl: photoUrl,
-        createdAt: DateTime.now(),
+      // Call the OAuth service to complete signup
+      await SupabaseOAuthService.signUpWithGoogle(
+        email: email,
+        password: password,
+        username: username,
+        role: role.toString().split('.').last,
+        displayName: displayName,
+        photoUrl: photoUrl,
       );
-      _isAuthenticated = true;
-      _errorMessage = null;
-      _googleSignUpData = null;
-      print('✅ [LoginProvider] signUpWithGoogle success!');
+
+      print('✅ [LoginProvider] Google signup completed in OAuth service');
+
+      // Get the newly created user from Supabase
+      final authUser = SupabaseService.client.auth.currentUser;
+      if (authUser != null) {
+        _currentUserRole = role;
+        _currentUser = User(
+          id: authUser.id,
+          email: email,
+          name: username,
+          role: role,
+          profilePictureUrl: photoUrl,
+          createdAt: DateTime.now(),
+        );
+        _isAuthenticated = true;
+        _errorMessage = null;
+        _googleSignUpData = null;
+        print('✅ [LoginProvider] signUpWithGoogle success!');
+      } else {
+        throw Exception('Failed to authenticate user after signup');
+      }
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = 'Google signup failed: $e';
       _isAuthenticated = false;
       _googleSignUpData = null;
       print('❌ [LoginProvider] signUpWithGoogle error: $e');

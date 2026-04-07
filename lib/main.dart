@@ -111,12 +111,7 @@ class _AppRootState extends State<AppRoot> {
         if (loginProvider.googleSignUpData != null &&
             _authFlowState == AuthFlowState.signupForm) {
           print('📱 [AppRoot] Showing credentials screen for new OAuth user');
-          final data = loginProvider.googleSignUpData!;
           return GoogleSignupCredentialsScreen(
-            userId: data['id']!,
-            googleEmail: data['email']!,
-            googleName: data['display_name']!,
-            googleAvatarUrl: data['photo_url'],
             onBackPressed: () {
               loginProvider.clearError();
               setState(() => _authFlowState = AuthFlowState.authChoice);
