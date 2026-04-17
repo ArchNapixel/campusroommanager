@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../core/models/user_model.dart';
 import '../core/theme/app_theme.dart';
 import '../shared/widgets/custom_app_bar.dart';
 import '../shared/widgets/loading_widget.dart';
 import '../modules/users/users_provider.dart';
+import '../modules/users/user_crud_form.dart';
 
 /// User list screen with role badges
 class UserListScreen extends StatefulWidget {
@@ -22,7 +24,7 @@ class _UserListScreenState extends State<UserListScreen> {
   @override
   void initState() {
     super.initState();
-    _usersProvider = UsersProvider();
+    _usersProvider = context.read<UsersProvider>();
     _loadUsers();
   }
 
@@ -75,9 +77,19 @@ class _UserListScreenState extends State<UserListScreen> {
           IconButton(
             icon: Icon(Icons.add),
             onPressed: () {
-              // TODO: Navigate to create user form
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Create new user')),
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => UserCrudForm(
+                    onSave: (user) {
+                      _usersProvider.createUser(user);
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('User created successfully')),
+                      );
+                    },
+                    onCancel: () => Navigator.of(context).pop(),
+                  ),
+                ),
               );
             },
           ),
@@ -190,12 +202,19 @@ class _UserListScreenState extends State<UserListScreen> {
                                 ),
                               ),
                               onTap: () {
-                                // TODO: Navigate to edit user
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(
-                                  SnackBar(
-                                    content:
-                                        Text('Edit ${user.name}'),
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => UserCrudForm(
+                                      initialUser: user,
+                                      onSave: (updatedUser) {
+                                        _usersProvider.updateUser(user.id, updatedUser);
+                                        Navigator.of(context).pop();
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('User updated successfully')),
+                                        );
+                                      },
+                                      onCancel: () => Navigator.of(context).pop(),
+                                    ),
                                   ),
                                 );
                               },

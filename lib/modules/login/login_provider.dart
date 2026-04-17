@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import '../../core/models/user_model.dart';
 import '../../core/services/supabase_service.dart';
 import '../../core/services/supabase_oauth_service.dart';

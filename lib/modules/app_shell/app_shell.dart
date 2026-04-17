@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/models/user_model.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/builders/schedule_calendar_builder.dart';
@@ -89,70 +90,11 @@ class _AppShellState extends State<AppShell> {
   }
 
   Widget _buildBookingsScreen() {
-    final bookingsProvider = BookingsProvider();
-    return FutureBuilder(
-      future: bookingsProvider.loadAllBookings(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator());
-        }
-        final roomsProvider = RoomsProvider();
-        return FutureBuilder(
-          future: roomsProvider.loadRooms(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: CircularProgressIndicator());
-            }
-            final roomsMap = roomsProvider.roomsMapAsModels;
-            return BookingTable(
-              bookings: bookingsProvider.allBookingsAsModels,
-              roomsMap: roomsMap,
-            );
-          },
-        );
-      },
-    );
+    return _BookingsScreenWithRefresh();
   }
 
   Widget _buildSchedulesScreen() {
-    return FutureBuilder(
-      future: _loadSchedules(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasData) {
-          final data = snapshot.data as Map;
-          final spec = data['spec'];
-          final schedules = data['schedules'];
-          final bookings = data['bookings'];
-          return ScheduleCalendarView(
-            spec: spec,
-            schedules: schedules,
-            bookings: bookings,
-          );
-        }
-        return Center(
-            child: Text('Error loading schedules',
-            style: TextStyle(color: AppColors.error)));
-      },
-    );
-  }
-
-  Future<Map> _loadSchedules() async {
-    final bookingsProvider = BookingsProvider();
-    await bookingsProvider.loadAllBookings();
-    final schedulesProvider = SchedulesProvider();
-    await schedulesProvider.loadSchedules(bookingsProvider.allBookingsAsModels);
-    final spec = ScheduleCalendarBuilder()
-        .showMonthView(true)
-        .highlightTodaysEvents(true)
-        .build();
-    return {
-      'spec': spec,
-      'schedules': schedulesProvider.schedules,
-      'bookings': schedulesProvider.bookings,
-    };
+    return _SchedulesScreenWithRefresh();
   }
 
   @override
@@ -229,4 +171,262 @@ class NavigationItem {
     required this.label,
     this.isActive = false,
   });
+}
+
+/// Bookings screen with refresh button
+class _BookingsScreenWithRefresh extends StatefulWidget {
+  const _BookingsScreenWithRefresh();
+
+  @override
+  State<_BookingsScreenWithRefresh> createState() =>
+      _BookingsScreenWithRefreshState();
+}
+
+class _BookingsScreenWithRefreshState extends State<_BookingsScreenWithRefresh> {
+  late Future<List<dynamic>> _bookingsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshBookings();
+  }
+
+  Future<void> _refreshBookings() {
+    final bookingsProvider = context.read<BookingsProvider>();
+    final roomsProvider = context.read<RoomsProvider>();
+
+    setState(() {
+      _bookingsFuture = Future.wait<dynamic>([
+        bookingsProvider.loadAllBookings(),
+        roomsProvider.loadRooms(),
+      ]);
+    });
+    return Future.value();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer2<BookingsProvider, RoomsProvider>(
+      builder: (context, bookingsProvider, roomsProvider, _) {
+        return Column(
+          children: [
+            // Refresh button header
+            Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.dividerColor.withOpacity(0.3),
+                border: Border(
+                  bottom: BorderSide(
+                    color: AppColors.borderColor,
+                    width: 1,
+                  ),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'My Bookings',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.refresh),
+                    onPressed: _refreshBookings,
+                    tooltip: 'Refresh bookings',
+                    color: AppColors.buttonPrimary,
+                    splashRadius: 24,
+                  ),
+                ],
+              ),
+            ),
+            // Bookings table
+            Expanded(
+              child: FutureBuilder<List<dynamic>>(
+                future: _bookingsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: 48,
+                            color: AppColors.error,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'Error loading bookings',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: AppColors.error,
+                            ),
+                          ),
+                          SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: _refreshBookings,
+                            icon: Icon(Icons.refresh),
+                            label: Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  final roomsMap = roomsProvider.roomsMapAsModels;
+                  return Consumer<BookingsProvider>(
+                    builder: (context, bookingsProvider, _) {
+                      return Padding(
+                        padding: EdgeInsets.all(16),
+                        child: BookingTable(
+                          bookings: bookingsProvider.allBookingsAsModels,
+                          roomsMap: roomsMap,
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Schedules screen with refresh button
+class _SchedulesScreenWithRefresh extends StatefulWidget {
+  const _SchedulesScreenWithRefresh();
+
+  @override
+  State<_SchedulesScreenWithRefresh> createState() =>
+      _SchedulesScreenWithRefreshState();
+}
+
+class _SchedulesScreenWithRefreshState extends State<_SchedulesScreenWithRefresh> {
+  late Future<List<dynamic>> _schedulesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshSchedules();
+  }
+
+  Future<void> _refreshSchedules() {
+    final bookingsProvider = context.read<BookingsProvider>();
+    final schedulesProvider = context.read<SchedulesProvider>();
+
+    setState(() {
+      _schedulesFuture = Future.wait<dynamic>([
+        bookingsProvider.loadAllBookings(),
+        schedulesProvider.loadSchedules(bookingsProvider.allBookingsAsModels),
+      ]);
+    });
+    return Future.value();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer2<BookingsProvider, SchedulesProvider>(
+      builder: (context, bookingsProvider, schedulesProvider, _) {
+        return Column(
+          children: [
+            // Refresh button header
+            Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.dividerColor.withOpacity(0.3),
+                border: Border(
+                  bottom: BorderSide(
+                    color: AppColors.borderColor,
+                    width: 1,
+                  ),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Schedule',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.refresh),
+                    onPressed: _refreshSchedules,
+                    tooltip: 'Refresh schedule',
+                    color: AppColors.buttonPrimary,
+                    splashRadius: 24,
+                  ),
+                ],
+              ),
+            ),
+            // Calendar
+            Expanded(
+              child: FutureBuilder<List<dynamic>>(
+                future: _schedulesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: 48,
+                            color: AppColors.error,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'Error loading schedule',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: AppColors.error,
+                            ),
+                          ),
+                          SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: _refreshSchedules,
+                            icon: Icon(Icons.refresh),
+                            label: Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  final spec = ScheduleCalendarBuilder()
+                      .showMonthView(true)
+                      .highlightTodaysEvents(true)
+                      .build();
+                  return Consumer<SchedulesProvider>(
+                    builder: (context, schedulesProvider, _) {
+                      return Padding(
+                        padding: EdgeInsets.all(16),
+                        child: ScheduleCalendarView(
+                          spec: spec,
+                          schedules: schedulesProvider.schedules,
+                          bookings: schedulesProvider.bookings,
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }

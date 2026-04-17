@@ -34,14 +34,26 @@ class InteractiveMapProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Generate mock room coordinates
+  /// Generate room coordinates - use actual GPS data if available, otherwise generate
   void _generateRoomCoordinates() {
     _roomCoordinates.clear();
     double x = 50;
-
+    
     for (final room in _rooms) {
-      _roomCoordinates[room.id] = x;
-      x += 160;
+      // If the room has GPS coordinates in the database, use them
+      // Otherwise use generated coordinates for visualization
+      if (room.latitude != null && room.longitude != null) {
+        // Use actual GPS coordinates normalized to screen space
+        // This would be further processed in the UI layer for proper map rendering
+        _roomCoordinates['${room.id}_lat'] = room.latitude!;
+        _roomCoordinates['${room.id}_lon'] = room.longitude!;
+        print('📍 [InteractiveMapProvider] Using GPS coords for ${room.name}: (${room.latitude}, ${room.longitude})');
+      } else {
+        // Generate fallback x-position for grid layout
+        _roomCoordinates[room.id] = x;
+        x += 160;
+        print('📍 [InteractiveMapProvider] Generated fallback coords for ${room.name}: x=$x-160');
+      }
     }
   }
 

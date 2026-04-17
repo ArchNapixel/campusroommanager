@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/factories/schedule_factory.dart';
 import '../../core/models/booking_model.dart';
 import '../../core/models/schedule_model.dart';
+import '../../core/services/database_service.dart';
 
 /// State provider for schedules
 class SchedulesProvider with ChangeNotifier {
@@ -38,26 +39,64 @@ class SchedulesProvider with ChangeNotifier {
 
   /// Add new schedule
   Future<void> addSchedule(Schedule schedule) async {
-    _schedules.add(schedule);
+    _isLoading = true;
     notifyListeners();
-    // TODO: Persist to backend
+
+    try {
+      print('📱 [SchedulesProvider] Adding schedule: ${schedule.id}');
+      final scheduleData = _mapScheduleToData(schedule);
+      await DatabaseService.createSchedule(scheduleData);
+      _schedules.add(schedule);
+      print('✅ [SchedulesProvider] Schedule added successfully');
+    } catch (e) {
+      print('❌ [SchedulesProvider] Error adding schedule: $e');
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   /// Update schedule
   Future<void> updateSchedule(String scheduleId, Schedule updated) async {
-    final index = _schedules.indexWhere((s) => s.id == scheduleId);
-    if (index != -1) {
-      _schedules[index] = updated;
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      print('📱 [SchedulesProvider] Updating schedule: $scheduleId');
+      final updateData = _mapScheduleToData(updated);
+      await DatabaseService.updateSchedule(scheduleId, updateData);
+      final index = _schedules.indexWhere((s) => s.id == scheduleId);
+      if (index != -1) {
+        _schedules[index] = updated;
+      }
+      print('✅ [SchedulesProvider] Schedule updated successfully');
+    } catch (e) {
+      print('❌ [SchedulesProvider] Error updating schedule: $e');
+      rethrow;
+    } finally {
+      _isLoading = false;
       notifyListeners();
     }
-    // TODO: Persist to backend
   }
 
   /// Delete schedule
   Future<void> deleteSchedule(String scheduleId) async {
-    _schedules.removeWhere((s) => s.id == scheduleId);
+    _isLoading = true;
     notifyListeners();
-    // TODO: Persist to backend
+
+    try {
+      print('📱 [SchedulesProvider] Deleting schedule: $scheduleId');
+      await DatabaseService.deleteSchedule(scheduleId);
+      _schedules.removeWhere((s) => s.id == scheduleId);
+      print('✅ [SchedulesProvider] Schedule deleted successfully');
+    } catch (e) {
+      print('❌ [SchedulesProvider] Error deleting schedule: $e');
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   /// Get schedules for specific date
@@ -90,4 +129,15 @@ class SchedulesProvider with ChangeNotifier {
         booking.status != BookingStatus.cancelled &&
         booking.overlapsWithTime(startTime, endTime));
   }
+
+  /// Helper: Map Schedule model to database data
+  Map<String, dynamic> _mapScheduleToData(Schedule schedule) {
+    return {
+      'room_id': schedule.roomId,
+      'booking_id': schedule.bookingId,
+      'date': schedule.date.toIso8601String(),
+      'notes': schedule.notes,
+    };
+  }
 }
+

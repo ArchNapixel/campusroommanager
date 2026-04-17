@@ -57,6 +57,54 @@ class DatabaseService {
     }
   }
 
+  /// Get all users
+  static Future<List<Map<String, dynamic>>> getAllUsers() async {
+    try {
+      print('📊 [DatabaseService] Fetching all users');
+      final response = await _client
+          .from('users')
+          .select()
+          .order('name');
+      print('✅ [DatabaseService] Fetched ${response.length} users');
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('❌ [DatabaseService] Error fetching all users: $e');
+      rethrow;
+    }
+  }
+
+  /// Create user (admin only)
+  static Future<Map<String, dynamic>> createUser(Map<String, dynamic> userData) async {
+    try {
+      print('📊 [DatabaseService] Creating user: ${userData['email']}');
+      final response = await _client
+          .from('users')
+          .insert(userData)
+          .select()
+          .single();
+      print('✅ [DatabaseService] User created with ID: ${response['id']}');
+      return response;
+    } catch (e) {
+      print('❌ [DatabaseService] Error creating user: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete user (admin only)
+  static Future<void> deleteUser(String userId) async {
+    try {
+      print('📊 [DatabaseService] Deleting user: $userId');
+      await _client
+          .from('users')
+          .delete()
+          .eq('id', userId);
+      print('✅ [DatabaseService] User deleted');
+    } catch (e) {
+      print('❌ [DatabaseService] Error deleting user: $e');
+      rethrow;
+    }
+  }
+
   // ==================== ROOMS ====================
 
   /// Get all rooms
@@ -398,6 +446,21 @@ class DatabaseService {
       print('✅ [DatabaseService] Schedule updated');
     } catch (e) {
       print('❌ [DatabaseService] Error updating schedule: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete schedule (admin only)
+  static Future<void> deleteSchedule(String scheduleId) async {
+    try {
+      print('📊 [DatabaseService] Deleting schedule: $scheduleId');
+      await _client
+          .from('schedules')
+          .delete()
+          .eq('id', scheduleId);
+      print('✅ [DatabaseService] Schedule deleted');
+    } catch (e) {
+      print('❌ [DatabaseService] Error deleting schedule: $e');
       rethrow;
     }
   }

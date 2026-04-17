@@ -30,7 +30,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _roomsProvider = RoomsProvider();
+    _roomsProvider = context.read<RoomsProvider>();
     _loadRooms();
   }
 

@@ -6,6 +6,11 @@ import 'core/models/user_model.dart';
 import 'modules/login/login_barrel.dart';
 import 'modules/login/dialogs/auth_flow_dialogs.dart';
 import 'modules/app_shell/app_shell_barrel.dart';
+import 'modules/bookings/bookings_barrel.dart';
+import 'modules/rooms/rooms_barrel.dart';
+import 'modules/schedules/schedules_barrel.dart';
+import 'modules/users/users_barrel.dart';
+import 'modules/interactive_map/interactive_map_barrel.dart';
 import 'screens/admin_login_screen.dart';
 import 'screens/google_signup_credentials_screen.dart';
 
@@ -20,8 +25,17 @@ class CampusRoomManagerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => LoginProvider(),
+    return MultiProvider(
+      providers: [
+        // Authentication provider - must be first
+        ChangeNotifierProvider(create: (_) => LoginProvider()),
+        // Data providers - used across the app
+        ChangeNotifierProvider(create: (_) => BookingsProvider()),
+        ChangeNotifierProvider(create: (_) => RoomsProvider()),
+        ChangeNotifierProvider(create: (_) => SchedulesProvider()),
+        ChangeNotifierProvider(create: (_) => UsersProvider()),
+        ChangeNotifierProvider(create: (_) => InteractiveMapProvider()),
+      ],
       child: MaterialApp(
         title: 'Campus Room Manager',
         theme: AppTheme.darkTheme,

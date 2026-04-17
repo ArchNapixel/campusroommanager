@@ -45,7 +45,7 @@ class _RoomBookingScreenState extends State<RoomBookingScreen> {
     super.initState();
     _selectedDate = DateTime.now();
     _focusedDate = DateTime.now();
-    _bookingsProvider = BookingsProvider();
+    _bookingsProvider = context.read<BookingsProvider>();
     _checkSlotAvailability();
   }
 

@@ -20,28 +20,55 @@ class BookingActionButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 6,
+      runSpacing: 6,
+      alignment: WrapAlignment.center,
       children: [
-        TextButton.icon(
-          onPressed: onDetails,
-          icon: Icon(Icons.info_outline),
-          label: Text('Details'),
+        SizedBox(
+          height: 32,
+          child: OutlinedButton.icon(
+            onPressed: onDetails,
+            icon: Icon(Icons.info_outline, size: 16),
+            label: Text('Details', style: TextStyle(fontSize: 12)),
+            style: OutlinedButton.styleFrom(
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+          ),
         ),
         if (booking.status == BookingStatus.pending)
-          TextButton.icon(
-            onPressed: onEdit,
-            icon: Icon(Icons.edit),
-            label: Text('Edit'),
+          SizedBox(
+            height: 32,
+            child: OutlinedButton.icon(
+              onPressed: onEdit,
+              icon: Icon(Icons.edit, size: 16),
+              label: Text('Edit', style: TextStyle(fontSize: 12)),
+              style: OutlinedButton.styleFrom(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            ),
           ),
         if (booking.status != BookingStatus.cancelled &&
             booking.status != BookingStatus.completed)
-          TextButton.icon(
-            onPressed: onCancel,
-            icon: Icon(Icons.close),
-            label: Text('Cancel'),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.error,
+          SizedBox(
+            height: 32,
+            child: OutlinedButton.icon(
+              onPressed: onCancel,
+              icon: Icon(Icons.close, size: 16),
+              label: Text('Cancel', style: TextStyle(fontSize: 12)),
+              style: OutlinedButton.styleFrom(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                foregroundColor: AppColors.error,
+                side: BorderSide(color: AppColors.error.withOpacity(0.5)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
             ),
           ),
       ],
