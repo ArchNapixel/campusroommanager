@@ -19,7 +19,7 @@ void main() async {
   await SupabaseService.initialize();
   runApp(const CampusRoomManagerApp());
 }
-
+//ARCH ANGELO NINO COLES
 class CampusRoomManagerApp extends StatelessWidget {
   const CampusRoomManagerApp({super.key});
 
